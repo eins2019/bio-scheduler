@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.2';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.3';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -137,12 +137,90 @@ function initWeather() {
     const c = JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY));
     if (c && Date.now() - c.at < 3*3600*1000) { weather = c.weather; render(); return; }
   } catch {}
+  const loc = getWeatherLoc();
+  if (loc.mode === 'fixed') { fetchWeather(loc.lat, loc.lon); return; }
   if (!navigator.geolocation) { fetchWeather(35.68, 139.76); return; }
   navigator.geolocation.getCurrentPosition(
     pos => fetchWeather(pos.coords.latitude, pos.coords.longitude),
     ()  => fetchWeather(35.68, 139.76),   // 位置情報が使えないときは東京
     { maximumAge: 3600000, timeout: 10000 }
   );
+}
+
+// ---------- 天気の地域指定 ----------
+const WLOC_KEY = 'bio_weather_loc';  // {mode:'geo'} か {mode:'fixed', name, lat, lon}
+const WEATHER_CITIES = {
+  '札幌':[43.06,141.35], '仙台':[38.27,140.87], '東京':[35.68,139.76],
+  '横浜':[35.44,139.64], '新潟':[37.90,139.02], '金沢':[36.59,136.63],
+  '名古屋':[35.18,136.91], '大阪':[34.69,135.50], '広島':[34.39,132.46],
+  '高松':[34.34,134.05], '福岡':[33.59,130.40], '鹿児島':[31.56,130.56],
+  '那覇':[26.21,127.68],
+};
+
+function getWeatherLoc() {
+  try { return JSON.parse(localStorage.getItem(WLOC_KEY)) ?? { mode:'geo' }; }
+  catch { return { mode:'geo' }; }
+}
+
+function setWeatherLoc(val) {
+  if (val === '__custom__') return;  // すでに選択中の任意都市
+  if (val === 'custom') {
+    const name = (prompt('都市名を入力してください（例：京都、軽井沢、ニューヨーク）') ?? '').trim();
+    if (!name) { applyWeatherLocToSelect(); return; }
+    geocodeAndFetch(name);
+    return;
+  }
+  if (val === 'geo') {
+    localStorage.setItem(WLOC_KEY, JSON.stringify({ mode:'geo' }));
+  } else {
+    const c = WEATHER_CITIES[val];
+    if (!c) return;
+    localStorage.setItem(WLOC_KEY, JSON.stringify({ mode:'fixed', name:val, lat:c[0], lon:c[1] }));
+  }
+  localStorage.removeItem(WEATHER_CACHE_KEY);
+  initWeather();
+}
+
+async function geocodeAndFetch(name) {
+  try {
+    const search = async q => {
+      const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=ja`);
+      const j = await r.json();
+      return j.results ?? [];
+    };
+    // 「横浜」→青森の横浜町、「京都」→ヒットなし等の対策：
+    // 「市」付きでも検索して候補を合わせ、人口最大の地点を採用する
+    let results = await search(name);
+    if (!/[市町村区]$/.test(name)) results = results.concat(await search(name + '市'));
+    if (!results.length) { alert('「'+name+'」が見つかりませんでした'); applyWeatherLocToSelect(); return; }
+    const hit = results.reduce((a, b) => ((b.population ?? 0) > (a.population ?? 0) ? b : a));
+    localStorage.setItem(WLOC_KEY, JSON.stringify({ mode:'fixed', name: hit.name, lat: hit.latitude, lon: hit.longitude }));
+    localStorage.removeItem(WEATHER_CACHE_KEY);
+    applyWeatherLocToSelect();
+    initWeather();
+  } catch (e) {
+    alert('都市の検索に失敗しました。通信状態を確認してください。');
+    applyWeatherLocToSelect();
+  }
+}
+
+// 保存済みの地域設定をセレクトボックスに反映
+function applyWeatherLocToSelect() {
+  const sel = document.getElementById('weather-loc');
+  if (!sel) return;
+  const loc = getWeatherLoc();
+  if (loc.mode === 'geo')          { sel.value = 'geo'; return; }
+  if (WEATHER_CITIES[loc.name])    { sel.value = loc.name; return; }
+  // 任意入力の都市：専用optionを作って選択状態にする
+  let opt = document.getElementById('weather-loc-custom-opt');
+  if (!opt) {
+    opt = document.createElement('option');
+    opt.id = 'weather-loc-custom-opt';
+    opt.value = '__custom__';
+    sel.insertBefore(opt, sel.querySelector('option[value="custom"]'));
+  }
+  opt.textContent = loc.name;
+  sel.value = '__custom__';
 }
 
 // ---------- 全予定を統合 ----------
@@ -830,6 +908,7 @@ wkStart=getWeekStart(TODAY);
   }
 }
 init();
+applyWeatherLocToSelect();
 initWeather();
 
 // ---------- スワイプで前後移動（タッチ端末） ----------

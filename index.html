@@ -123,6 +123,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <option value="0">日曜始まり</option>
       <option value="1">月曜始まり</option>
     </select>
+    <select id="weather-loc" onchange="setWeatherLoc(this.value)"
+      style="font-size:11px;padding:4px 6px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">
+      <option value="geo">天気:現在地</option>
+      <option value="札幌">札幌</option>
+      <option value="仙台">仙台</option>
+      <option value="東京">東京</option>
+      <option value="横浜">横浜</option>
+      <option value="新潟">新潟</option>
+      <option value="金沢">金沢</option>
+      <option value="名古屋">名古屋</option>
+      <option value="大阪">大阪</option>
+      <option value="広島">広島</option>
+      <option value="高松">高松</option>
+      <option value="福岡">福岡</option>
+      <option value="鹿児島">鹿児島</option>
+      <option value="那覇">那覇</option>
+      <option value="custom">都市名で指定…</option>
+    </select>
     <div class="tabs">
       <div class="tab active" id="tab-m" onclick="setView('month')">月</div>
       <div class="tab" id="tab-w" onclick="setView('week')">週</div>
