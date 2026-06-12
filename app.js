@@ -99,12 +99,25 @@ function allEvents(key) {
 function evStart(ev) { return ev.hourStart ?? ev.hour ?? null; }
 function evEnd(ev)   { return ev.hourEnd ?? ev.hour ?? null; }
 function evIsAllday(ev) { return evStart(ev) === null; }
-// イベントが指定時間hに該当するか
-function evAtHour(ev, h) {
-  const s = evStart(ev), e = evEnd(ev);
-  if (s === null) return false;
-  if (e === null || e === s) return h === s;
-  return h >= s && h < e;
+// 週表示用：1日の時間指定イベントを表示範囲にクランプし、重なりにはレーンを割り当てる
+function layoutDayEvents(evs, gridStart, gridEnd) {
+  const items = evs
+    .map(ev => ({ ev, s: evStart(ev), e: evEnd(ev) }))
+    .filter(x => x.s !== null)
+    .map(x => ({ ev: x.ev, s: x.s, e: (x.e === null || x.e <= x.s) ? x.s + 1 : x.e }))
+    .filter(x => x.e > gridStart && x.s < gridEnd)
+    .map(x => ({ ev: x.ev, s: Math.max(x.s, gridStart), e: Math.min(x.e, gridEnd) }));
+  items.sort((a, b) => a.s - b.s || b.e - a.e);
+  const laneEnd = [];
+  items.forEach(it => {
+    let lane = laneEnd.findIndex(end => end <= it.s);
+    if (lane === -1) { lane = laneEnd.length; laneEnd.push(0); }
+    laneEnd[lane] = it.e;
+    it.lane = lane;
+  });
+  const nLanes = Math.max(1, laneEnd.length);
+  items.forEach(it => it.nLanes = nLanes);
+  return items;
 }
 // 時間ラベル
 function evTimeLabel(ev) {
@@ -360,22 +373,33 @@ function renderWeek() {
   });
   html += `</tr></thead><tbody>${allDayHtml}`;
 
+  // 各日のイベントを開始時間ごとに1本のバーとして配置（重なりは横並び）
+  const gridStart = hours[0], gridEnd = hours[hours.length-1] + 1;
+  const dayLayouts = days.map(d => layoutDayEvents(allEvents(dkey(d)), gridStart, gridEnd));
+
   hours.forEach(h => {
     html += `<tr><td style="font-size:9px;color:#aaa;text-align:right;padding-right:4px;
       background:#fafafa;height:26px;border:0.5px solid #ddd;white-space:nowrap">${h}:00</td>`;
-    days.forEach(d => {
-      const k   = dkey(d);
-      const evs = allEvents(k).filter(ev => evAtHour(ev, h));
-      const b   = bio(d);
-      html += `<td style="border:0.5px solid #ddd;padding:1px 2px;vertical-align:top;
-        height:26px;cursor:pointer;background:#fff"
+    days.forEach((d, di) => {
+      const b = bio(d);
+      html += `<td style="border:0.5px solid #ddd;padding:0;vertical-align:top;
+        height:26px;cursor:pointer;background:#fff;position:relative"
         onclick="clickSlot(${d.getTime()},${h})">`;
-      evs.forEach(ev => {
+      // この時間に開始するイベントだけ描画し、高さで終了時間まで伸ばす
+      dayLayouts[di].filter(it => it.s === h).forEach(it => {
+        const ev   = it.ev;
+        const rows = it.e - it.s;
         const bg = isCrit(b)?'#F5C4B3': ev.source==='gcal'?'#9FE1CB':'#B5D4F4';
         const fg = isCrit(b)?'#4A1B0C': ev.source==='gcal'?'#04342C':'#042C53';
-        html += `<span style="font-size:9px;padding:1px 3px;border-radius:2px;
-          background:${bg};color:${fg};display:block;margin:1px 0;
-          overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ev.title)}</span>`;
+        const left  = (it.lane / it.nLanes * 100).toFixed(1);
+        const width = (100 / it.nLanes).toFixed(1);
+        html += `<div style="position:absolute;top:1px;left:calc(${left}% + 1px);
+          width:calc(${width}% - 2px);height:${(rows*26.5-4).toFixed(1)}px;
+          background:${bg};color:${fg};font-size:9px;padding:1px 3px;border-radius:3px;
+          z-index:1;overflow:hidden;box-sizing:border-box">
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ev.title)}</div>
+          ${rows>=2?`<div style="font-size:8px;opacity:.75">${evTimeLabel(ev).trim()}</div>`:''}
+        </div>`;
       });
       html += '</td>';
     });
