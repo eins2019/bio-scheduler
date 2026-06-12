@@ -2,7 +2,7 @@
 // sw.js - Service Worker
 // ===========================
 
-const CACHE_NAME = 'bio-scheduler-v9';
+const CACHE_NAME = 'bio-scheduler-v10';
 
 // キャッシュするファイル一覧
 // 相対パスにすること（GitHub Pagesのようなサブパス配下でも動くように）
@@ -62,7 +62,26 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // その他はキャッシュ優先、なければネットワーク
+  // HTML・JSはネットワーク優先（更新が1回のリロードで届くように）。
+  // オフライン時のみキャッシュにフォールバック。
+  const dest = event.request.destination;
+  if (dest === 'document' || dest === 'script') {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() =>
+        caches.match(event.request).then(cached =>
+          cached ?? (dest === 'document' ? caches.match('./index.html') : undefined))
+      )
+    );
+    return;
+  }
+
+  // 画像などその他はキャッシュ優先、なければネットワーク
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
