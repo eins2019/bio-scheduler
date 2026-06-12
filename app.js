@@ -636,11 +636,21 @@ function renderGcalEvents(evList) {
       const m  = String(dt.getMonth()+1).padStart(2,'0');
       const d  = String(dt.getDate()).padStart(2,'0');
       const k  = y+'-'+m+'-'+d;
+      const hs = dt.getHours();
+      // 終了時刻も取り込む（分が端数なら切り上げ、日またぎはその日の終わりまで）
+      let he = hs;
+      if (ev.end && ev.end.dateTime) {
+        const de = new Date(ev.end.dateTime);
+        he = dkey(de) === k
+          ? de.getHours() + (de.getMinutes() > 0 ? 1 : 0)
+          : 24;
+      }
       if (!gcalEvents[k]) gcalEvents[k] = [];
       gcalEvents[k].push({
-        title:  ev.summary ?? '（タイトルなし）',
-        hour:   dt.getHours(),
-        source: 'gcal'
+        title:     ev.summary ?? '（タイトルなし）',
+        hourStart: hs,
+        hourEnd:   he,
+        source:    'gcal'
       });
     }
   });
@@ -661,9 +671,11 @@ function clearGcalEvents() {
 }
 
 // ---------- 初期化 ----------
+const BDAY_KEY = 'bio_bday';
 function init() {
   const v = document.getElementById('bday').value;
   if (!v) return;
+  localStorage.setItem(BDAY_KEY, v);
   const [y,m,d] = v.split('-').map(Number);
   bday = new Date(y,m-1,d); bday.setHours(0,0,0,0);
   yr=TODAY.getFullYear(); mo=TODAY.getMonth();
@@ -675,6 +687,14 @@ function init() {
 
 yr=TODAY.getFullYear(); mo=TODAY.getMonth();
 wkStart=getWeekStart(TODAY);
+// 保存済みの生年月日があれば入力欄に復元してから初期化
+{
+  const savedBday = localStorage.getItem(BDAY_KEY);
+  if (savedBday) {
+    const el = document.getElementById('bday');
+    if (el) el.value = savedBday;
+  }
+}
 init();
 
 // ---------- 週開始曜日の切替 ----------
