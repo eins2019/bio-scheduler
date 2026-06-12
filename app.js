@@ -48,13 +48,20 @@ function saveEvents() {
   localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
 }
 
+// Googleカレンダー予定のキャッシュ（リロード直後でも表示を維持するため）
+const GCAL_CACHE_KEY = 'bio_gcal_cache';
+function loadGcalCache() {
+  try { return JSON.parse(localStorage.getItem(GCAL_CACHE_KEY)) ?? {}; }
+  catch { return {}; }
+}
+
 let bday       = new Date(1975,3,1);
 let view       = 'month';
 let yr, mo, wkStart;
 let selDay     = null;
 let selWkStart = null;
 let events     = loadEvents();
-let gcalEvents = {};
+let gcalEvents = loadGcalCache();
 let holidays   = {};   // 祝日 { 'YYYY-MM-DD': '祝日名' }
 let bioChart   = null;
 let clickedHour = null;
@@ -690,6 +697,7 @@ function renderGcalEvents(evList) {
       });
     }
   });
+  localStorage.setItem(GCAL_CACHE_KEY, JSON.stringify(gcalEvents));
   render();
   const btn = document.getElementById('gcal-btn');
   btn.textContent = '連携済み ✓';
@@ -699,6 +707,7 @@ function renderGcalEvents(evList) {
 
 function clearGcalEvents() {
   Object.keys(gcalEvents).forEach(k => delete gcalEvents[k]);
+  localStorage.removeItem(GCAL_CACHE_KEY);
   const btn = document.getElementById('gcal-btn');
   btn.textContent = 'Googleカレンダーと連携';
   btn.classList.remove('connected');

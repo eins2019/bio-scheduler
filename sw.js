@@ -2,7 +2,7 @@
 // sw.js - Service Worker
 // ===========================
 
-const CACHE_NAME = 'bio-scheduler-v7';
+const CACHE_NAME = 'bio-scheduler-v8';
 
 // キャッシュするファイル一覧
 // 相対パスにすること（GitHub Pagesのようなサブパス配下でも動くように）
