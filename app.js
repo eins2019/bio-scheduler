@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.1';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.2';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -95,6 +95,54 @@ function wdays(s, len=7)  {
 // 週表示用：wkStartを週開始曜日に合わせて調整
 function adjustWkStart(d) {
   return getWeekStart(d);
+}
+
+// ---------- 天気予報（Open-Meteo・APIキー不要・16日先まで） ----------
+let weather = {};   // { 'YYYY-MM-DD': WMO天気コード }
+const WEATHER_CACHE_KEY = 'bio_weather_cache';
+
+function wmoIcon(code) {
+  if (code === 0)  return '☀️';
+  if (code <= 2)   return '⛅';
+  if (code === 3)  return '☁️';
+  if (code === 45 || code === 48) return '🌫️';
+  if (code >= 51 && code <= 67)   return '🌧️';
+  if (code >= 71 && code <= 77)   return '🌨️';
+  if (code >= 80 && code <= 82)   return '🌧️';
+  if (code === 85 || code === 86) return '🌨️';
+  if (code >= 95)  return '⛈️';
+  return '';
+}
+function weatherIcon(d) {
+  const c = weather[dkey(d)];
+  return c === undefined ? '' : wmoIcon(c);
+}
+
+async function fetchWeather(lat, lon) {
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+      + `&daily=weather_code&timezone=auto&forecast_days=16`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    weather = {};
+    (data.daily?.time ?? []).forEach((t, i) => { weather[t] = data.daily.weather_code[i]; });
+    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ at: Date.now(), weather }));
+    render();
+  } catch (e) { console.warn('天気取得失敗', e); }
+}
+
+function initWeather() {
+  // 3時間以内に取得済みならキャッシュを使う
+  try {
+    const c = JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY));
+    if (c && Date.now() - c.at < 3*3600*1000) { weather = c.weather; render(); return; }
+  } catch {}
+  if (!navigator.geolocation) { fetchWeather(35.68, 139.76); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+    ()  => fetchWeather(35.68, 139.76),   // 位置情報が使えないときは東京
+    { maximumAge: 3600000, timeout: 10000 }
+  );
 }
 
 // ---------- 全予定を統合 ----------
@@ -245,6 +293,7 @@ function renderMonth() {
       // 日付＋マーカー横並び
       html += `<div style="display:flex;align-items:center;margin-bottom:1px">
         <span style="font-size:11px;font-weight:600;color:${dnColor}">${dd}</span>${mSvg}
+        ${weatherIcon(d)?`<span style="font-size:9px;margin-left:auto">${weatherIcon(d)}</span>`:''}
       </div>`;
       if (holName) {
         html += `<div style="font-size:8px;color:#C0392B;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:1px">${holName}</div>`;
@@ -420,6 +469,7 @@ function renderWeek() {
       onclick="clickDay(${d.getTime()})">
       <div style="font-size:15px;font-weight:600;line-height:1.2">${d.getDate()}</div>
       <div style="font-size:11px;line-height:1.2">${DOW[d.getDay()]}${markers}</div>
+      ${weatherIcon(d)?`<div style="font-size:11px;line-height:1.3">${weatherIcon(d)}</div>`:''}
       ${holName2?`<div style="font-size:8px;font-weight:normal;line-height:1.2">${holName2}</div>`:''}
     </th>`;
   });
@@ -780,6 +830,7 @@ wkStart=getWeekStart(TODAY);
   }
 }
 init();
+initWeather();
 
 // ---------- スワイプで前後移動（タッチ端末） ----------
 (function() {
