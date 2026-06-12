@@ -277,7 +277,19 @@ function renderWeek() {
     wkStart.getFullYear()+'/'+(wkStart.getMonth()+1)+'/'+wkStart.getDate()+
     ' — '+(e.getMonth()+1)+'/'+e.getDate();
 
-  const hours = [8,9,10,11,12,13,14,15,16,17,18,19,20];
+  // 時間軸は基本8時〜20時台、範囲外の予定があればそこまで自動拡張
+  let hStart = 8, hEnd = 21;
+  days.forEach(d => {
+    allEvents(dkey(d)).forEach(ev => {
+      const s = evStart(ev);
+      if (s === null) return;
+      let e = evEnd(ev);
+      e = (e === null || e <= s) ? s + 1 : e;
+      if (s < hStart) hStart = s;
+      if (e > hEnd)   hEnd = e;
+    });
+  });
+  const hours = Array.from({length: hEnd - hStart}, (_, i) => hStart + i);
   const wdow2 = weekDow();
 
   // 終日イベント行（予定の有無に関わらず常に表示・最大2件＋+N件制限）
