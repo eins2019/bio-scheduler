@@ -2,6 +2,8 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
+const APP_VER = '1.1';  // sw.jsのCACHE_NAMEと合わせて更新すること
+
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
 
@@ -275,8 +277,37 @@ function selWeek(ts) {
   renderMonth(); renderBio(); renderDetail();
 }
 
+// ---------- 予定ポップアップ ----------
+let evPopupReg = [];   // 週表示の描画ごとに作り直すイベント参照表
+function showEvPopup(i) {
+  const item = evPopupReg[i];
+  if (!item) return;
+  closeEvPopup();
+  const d  = new Date(item.d);
+  const ev = item.ev;
+  const time = evTimeLabel(ev).trim() || '終日';
+  const ov = document.createElement('div');
+  ov.id = 'ev-popup-ov';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;display:flex;align-items:center;justify-content:center';
+  ov.addEventListener('click', e => { if (e.target === ov) closeEvPopup(); });
+  ov.innerHTML = `<div style="background:#fff;border-radius:10px;padding:16px 18px;max-width:80%;min-width:230px;box-shadow:0 8px 30px rgba(0,0,0,.25)">
+    <div style="font-size:12px;color:#888;margin-bottom:4px">${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}（${DOW[d.getDay()]}）　${time}</div>
+    <div style="font-size:14px;font-weight:600;color:#222;margin-bottom:6px;word-break:break-word">${esc(ev.title)}</div>
+    <div style="font-size:10px;color:#999">${ev.source==='gcal'?'Googleカレンダー':'ローカル予定'}</div>
+    <div style="text-align:right;margin-top:10px">
+      <button onclick="closeEvPopup()" style="font-size:12px;padding:4px 14px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">閉じる</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function closeEvPopup() {
+  const ov = document.getElementById('ev-popup-ov');
+  if (ov) ov.remove();
+}
+
 // ---------- 週表示（終日イベント表示修正） ----------
 function renderWeek() {
+  evPopupReg = [];
   const daysLen = (view === '2week') ? 14 : 7;
   const days = wdays(wkStart, daysLen);
   const e    = days[days.length-1];
@@ -312,9 +343,11 @@ function renderWeek() {
     show.forEach(ev => {
       const bg = isCrit(b)?'#F5C4B3': ev.source==='gcal'?'#9FE1CB':'#B5D4F4';
       const fg = isCrit(b)?'#4A1B0C': ev.source==='gcal'?'#04342C':'#042C53';
+      const pid = evPopupReg.push({ d: d.getTime(), ev }) - 1;
       allDayHtml += `<span style="font-size:9px;padding:1px 3px;border-radius:2px;
-        background:${bg};color:${fg};display:block;margin:1px 0;
-        overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ev.title)}</span>`;
+        background:${bg};color:${fg};display:block;margin:1px 0;cursor:pointer;
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+        onclick="event.stopPropagation();showEvPopup(${pid})">${esc(ev.title)}</span>`;
     });
     if (over > 0) {
       allDayHtml += `<span style="font-size:9px;color:#888;cursor:pointer;display:block;margin:1px 0;padding:1px 3px"
@@ -412,10 +445,12 @@ function renderWeek() {
         const fg = isCrit(b)?'#4A1B0C': ev.source==='gcal'?'#04342C':'#042C53';
         const left  = (it.lane / it.nLanes * 100).toFixed(1);
         const width = (100 / it.nLanes).toFixed(1);
+        const pid = evPopupReg.push({ d: d.getTime(), ev }) - 1;
         html += `<div style="position:absolute;top:1px;left:calc(${left}% + 1px);
           width:calc(${width}% - 2px);height:${(rows*26.5-4).toFixed(1)}px;
           background:${bg};color:${fg};font-size:9px;padding:1px 3px;border-radius:3px;
-          z-index:1;overflow:hidden;box-sizing:border-box">
+          z-index:1;overflow:hidden;box-sizing:border-box;cursor:pointer"
+          onclick="event.stopPropagation();showEvPopup(${pid})">
           <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ev.title)}</div>
           ${rows>=2?`<div style="font-size:8px;opacity:.75">${evTimeLabel(ev).trim()}</div>`:''}
         </div>`;
@@ -732,6 +767,10 @@ function init() {
 
 yr=TODAY.getFullYear(); mo=TODAY.getMonth();
 wkStart=getWeekStart(TODAY);
+{
+  const verEl = document.getElementById('app-ver');
+  if (verEl) verEl.textContent = 'v' + APP_VER;
+}
 // 保存済みの生年月日があれば入力欄に復元してから初期化
 {
   const savedBday = localStorage.getItem(BDAY_KEY);
