@@ -742,6 +742,24 @@ wkStart=getWeekStart(TODAY);
 }
 init();
 
+// ---------- スワイプで前後移動（タッチ端末） ----------
+(function() {
+  const area = document.getElementById('main-area');
+  if (!area) return;
+  let sx = 0, sy = 0;
+  area.addEventListener('touchstart', e => {
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+  }, { passive: true });
+  area.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    // 縦スクロールと区別：横移動50px以上かつ縦より明確に大きいときだけ
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0) navNext(); else navPrev();
+  }, { passive: true });
+})();
+
 // ---------- 週開始曜日の切替 ----------
 function setWeekStart(val) {
   weekStart0 = parseInt(val);
