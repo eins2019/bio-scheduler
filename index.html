@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">4
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1F5C99">
+<link rel="manifest" href="manifest.json">
+<title>Bioスケジューラ</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f8f8;color:#222}
+#app{max-width:780px;margin:0 auto;padding:8px}
+
+/* ツールバー */
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;
+  background:#fff;padding:8px 10px;border-radius:8px;border:0.5px 1cap #ddd}
+.toolbar h1{font-size:15px;font-weight:600;color:#1F5C99;margin-right:4px}
+.toolbar label{font-size:12px;color:#666}
+.toolbar input[type=date]{font-size:12px;padding:4px 8px;border:1px solid #ccc;border-radius:6px}
+.tabs{display:flex;border:1px solid #ccc;border-radius:6px;overflow:hidden;margin-left:auto}
+.tab{padding:4px 14px;font-size:12px;cursor:pointer;background:#fff;color:#666;border:none}
+.tab.active{background:#1F5C99;color:#fff;font-weight:500}
+#gcal-btn{font-size:11px;padding:4px 10px;border:1px solid #1F5C99;border-radius:6px;
+  background:#fff;color:#1F5C99;cursor:pointer;white-space:nowrap}
+#gcal-btn:disabled{border-color:#ccc;color:#ccc;cursor:default}
+#gcal-btn.connected{background:#E1F5EE;border-color:#1D9E75;color:#0F6E56}
+#gcal-signout{font-size:11px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;
+  background:#fff;color:#999;cursor:pointer;display:none}
+
+/* ナビゲーション */
+.nav{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.nav button{padding:3px 12px;font-size:12px;border:1px solid #ccc;border-radius:6px;
+  background:#fff;cursor:pointer}
+.nav button:hover{background:#f0f0f0}
+.nlabel{font-size:14px;font-weight:600;flex:1;text-align:center;color:#222}
+
+/* 月グリッド */
+.dow-hdr{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px}
+.dow-hdr span{text-align:center;font-size:10px;color:#999;padding:2px 0}
+.month-weeks{display:flex;flex-direction:column;gap:2px}
+.week-row{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;cursor:pointer}
+.week-row:hover .mcell{border-color:#aaa}
+.week-row.sel-week .mcell{border-color:#534AB7;background:#EEEDFE}
+.mcell{border:0.5px solid #ddd;border-radius:5px;min-height:52px;padding:3px;background:#fff}
+.mcell.empty{background:transparent;border-color:transparent}
+.mcell.today{border-color:#1F5C99;border-width:1.5px}
+.mdn{font-size:10px;font-weight:600;color:#222}
+.mdn.crit{color:#A32D2D}.mdn.good{color:#0F6E56}
+.mev{font-size:9px;padding:1px 3px;border-radius:2px;margin-top:1px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mev.local{background:#E6F1FB;color:#0C447C}
+.mev.gcal{background:#E1F5EE;color:#085041}
+.mev.warn{background:#FCEBEB;color:#791F1F}
+
+/* 週スケジュール */
+.week-tbl{width:100%;border-collapse:collapse;table-layout:fixed}
+.week-tbl th{font-size:11px;font-weight:500;text-align:center;padding:4px 2px;
+  border:0.5px solid #ddd;background:#fff}
+.week-tbl th.today-h{background:#E6F1FB;color:#0C447C}
+.week-tbl th.crit-h{background:#FCEBEB;color:#791F1F}
+.week-tbl th.good-h{background:#E1F5EE;color:#085041}
+.week-tbl td{border:0.5px solid #ddd;padding:1px 2px;vertical-align:top;
+  height:26px;cursor:pointer;font-size:9px;background:#fff}
+.week-tbl td:hover{background:#f5f5f5}
+.week-tbl .time-td{font-size:9px;color:#aaa;text-align:right;padding-right:4px;
+  cursor:default;background:#fafafa;width:36px}
+.week-tbl .time-td:hover{background:#fafafa}
+.ev-chip{font-size:9px;padding:1px 3px;border-radius:2px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;display:block;margin:1px 0}
+.ev-chip.local{background:#B5D4F4;color:#042C53}
+.ev-chip.gcal{background:#9FE1CB;color:#04342C}
+.ev-chip.warn{background:#F5C4B3;color:#4A1B0C}
+
+/* バイオリズムパネル */
+.bio-box{border:0.5px solid #ddd;border-radius:8px;padding:10px;
+  margin-top:10px;background:#fff}
+.bio-box-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.bio-box-title{font-size:12px;font-weight:600;color:#222}
+.bio-legend{display:flex;gap:10px}
+.bleg{display:flex;align-items:center;gap:3px;font-size:10px;color:#666}
+.bleg-dot{width:7px;height:7px;border-radius:50%}
+
+/* 詳細パネル */
+.detail{border:0.5px solid #ddd;border-radius:8px;padding:10px;
+  margin-top:8px;background:#fff}
+.detail-date{font-size:13px;font-weight:600;margin-bottom:8px}
+.scores3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+.s3{background:#f5f5f5;border-radius:6px;padding:6px;text-align:center}
+.s3-l{font-size:10px;color:#666}
+.s3-v{font-size:16px;font-weight:600}
+.adv{font-size:11px;padding:6px 8px;border-radius:6px;margin-bottom:8px;border-left:3px solid transparent}
+.adv.good{background:#E1F5EE;color:#085041;border-color:#1D9E75}
+.adv.caution{background:#F0F0F0;color:#555;border-color:#bbb}
+.adv.danger{background:#FCEBEB;color:#791F1F;border-color:#E24B4A}
+.ev-items{margin-bottom:8px}
+.ev-row{display:flex;align-items:center;gap:5px;font-size:11px;
+  padding:4px 6px;border:0.5px solid #ddd;border-radius:5px;margin-bottom:2px;background:#fff}
+.ev-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.ev-t{flex:1;color:#222}
+.ev-src{font-size:9px;color:#999;flex-shrink:0}
+.ev-del{font-size:11px;color:#bbb;cursor:pointer;padding:0 3px}
+.ev-del:hover{color:#E24B4A}
+.add-row{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.add-row input{flex:1;font-size:12px;padding:5px 8px;border:1px solid #ccc;border-radius:6px}
+.add-row button{font-size:12px;padding:5px 10px;border:1px solid #ccc;
+  border-radius:6px;background:#fff;cursor:pointer}
+.add-row button:hover{background:#f0f0f0}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ツールバー -->
+  <div class="toolbar">
+    <h1>Bioスケジューラ</h1>
+    <label>生年月日：</label>
+    <input type="date" id="bday" value="1975-04-01">
+    <button onclick="init()" style="font-size:12px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">更新</button>
+    <button id="gcal-btn" disabled onclick="handleAuthClick()">Googleカレンダーと連携</button>
+    <button id="gcal-signout" onclick="handleSignoutClick()">連携解除</button>
+    <select id="week-start-sel" onchange="setWeekStart(this.value)"
+      style="font-size:11px;padding:4px 6px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">
+      <option value="0">日曜始まり</option>
+      <option value="1">月曜始まり</option>
+    </select>
+    <div class="tabs">
+      <div class="tab active" id="tab-m" onclick="setView('month')">月</div>
+      <div class="tab" id="tab-w" onclick="setView('week')">週</div>
+      <div class="tab" id="tab-2w" onclick="setView('2week')">2週</div>
+    </div>
+  </div>
+
+  <!-- ナビゲーション -->
+  <div class="nav">
+    <button onclick="navPrev()">◀</button>
+    <div class="nlabel" id="nlabel"></div>
+    <button onclick="navNext()">▶</button>
+  </div>
+
+  <!-- メインエリア -->
+  <div id="main-area"></div>
+
+  <!-- バイオリズムグラフ -->
+  <div id="bio-area"></div>
+
+  <!-- 詳細・予定追加パネル -->
+  <div id="detail-area"></div>
+
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+
+<!-- アプリ本体 -->
+<script src="app.js"></script>
+
+<!-- Googleカレンダー連携 -->
+<script src="gcal.js"></script>
+
+<!-- Service Worker 登録 -->
+<script>
+// 週開始曜日の設定を選択肢に反映
+window.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('week-start-sel');
+  if (sel) sel.value = localStorage.getItem('bio_week_start') ?? '0';
+});
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js');
+  });
+}
+</script>
+
+</body>
+</html>
