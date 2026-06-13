@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.8';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.9';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -822,6 +822,51 @@ function delEv(k,i) {
   if (!events[k].length) delete events[k];
   saveEvents();
   render();
+}
+
+// ---------- ローカル予定のバックアップ（書き出し／読み込み） ----------
+// ローカル予定はこの端末のlocalStorage(bio_events)のみに保存されるため、
+// JSONファイルとして書き出し・読み込みできるようにする。
+function exportEvents() {
+  if (!Object.keys(events).length) { alert('書き出すローカル予定がありません。'); return; }
+  const blob = new Blob([JSON.stringify(events, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const n = new Date(), p = x => String(x).padStart(2,'0');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `bio-events-${n.getFullYear()}${p(n.getMonth()+1)}${p(n.getDate())}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// 読み込み：既存の予定に「マージ（重複は追加しない）」する
+function importEvents(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('ファイルの形式が不正です');
+      const norm = e => JSON.stringify([e.title, e.hourStart ?? e.hour ?? null, e.hourEnd ?? null]);
+      let added = 0;
+      Object.keys(data).forEach(k => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !Array.isArray(data[k])) return;
+        if (!events[k]) events[k] = [];
+        data[k].forEach(ev => {
+          if (!ev || typeof ev.title !== 'string') return;
+          if (events[k].some(e => norm(e) === norm(ev))) return;   // 重複はスキップ
+          events[k].push({ title: ev.title, hourStart: ev.hourStart ?? ev.hour ?? null, hourEnd: ev.hourEnd ?? null, source: 'local' });
+          added++;
+        });
+        if (!events[k].length) delete events[k];
+      });
+      saveEvents();
+      render();
+      alert(`読み込み完了：${added}件を追加しました。`);
+    } catch (e) {
+      alert('読み込みに失敗しました：' + e.message);
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ---------- Googleカレンダー予定反映 ----------
