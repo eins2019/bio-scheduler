@@ -8,8 +8,11 @@
 <title>Bioスケジューラ</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+html,body{max-width:100%;overflow-x:hidden}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f8f8;color:#222}
-#app{max-width:780px;margin:0 auto;padding:8px}
+#app{width:100%;max-width:780px;margin:0 auto;padding:8px}
+/* 横に広い表（2週など）は本体内でスクロールさせ、ページ全体は横はみ出しさせない */
+#main-area{overflow-x:auto;-webkit-overflow-scrolling:touch}
 
 /* ツールバー */
 .toolbar{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;
@@ -73,9 +76,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* バイオリズムパネル */
 .bio-box{border:0.5px solid #ddd;border-radius:8px;padding:10px;
   margin-top:10px;background:#fff}
-.bio-box-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.bio-box-hdr{display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:4px 10px;margin-bottom:6px}
 .bio-box-title{font-size:12px;font-weight:600;color:#222}
-.bio-legend{display:flex;gap:10px}
+.bio-legend{display:flex;flex-wrap:wrap;gap:6px 10px}
 .bleg{display:flex;align-items:center;gap:3px;font-size:10px;color:#666}
 .bleg-dot{width:7px;height:7px;border-radius:50%}
 
@@ -111,6 +115,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .backup button{font-size:11px;padding:4px 10px;border:1px solid #ccc;
   border-radius:6px;background:#fff;cursor:pointer;color:#555}
 .backup button:hover{background:#f0f0f0}
+
+/* スマホ幅（iPhone等）：要素を詰めて左右に収める */
+@media (max-width:430px){
+  #app{padding:6px}
+  .toolbar{padding:6px 8px;gap:5px}
+  .toolbar-row{gap:6px}
+  .toolbar h1{font-size:13px;margin-right:2px}
+  .toolbar label{font-size:11px}
+  .toolbar input[type=date]{font-size:11px;padding:3px 6px;max-width:140px}
+  .tab{padding:4px 10px;font-size:11px}
+  #gcal-btn{font-size:10px;padding:4px 8px}
+  #week-start-btn{padding:4px 8px}
+  #weather-loc{max-width:130px}
+  .nav button{padding:3px 10px}
+}
 </style>
 </head>
 <body>
