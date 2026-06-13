@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.9';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.10';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -710,9 +710,11 @@ function renderBio() {
       const b=bio(d);
       const isSel = selDay && selDay.getTime()===d.getTime();
       const bg = isSel?'background:#f0f0f0;border-radius:4px':'';
+      const stat = dayStatusIcon(d);   // 好調=😊 / 要注意=⚠️
       return `<div style="text-align:center;padding:2px 0;${bg}">
         ${metas.map(m => `<div style="height:3px;background:${m.color};width:${pct(b[m.key])}%;max-width:100%;margin:0 auto 1px"></div>`).join('')}
         <div style="font-size:8px;color:#aaa">${DOW[d.getDay()]}</div>
+        <div title="${stat.title}" style="font-size:11px;line-height:1.1;height:14px">${stat.icon}</div>
       </div>`;
     }).join('');
   });
