@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.11';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.13';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -69,6 +69,11 @@ let bioChart   = null;
 let clickedHour = null;
 let weekStart0 = parseInt(localStorage.getItem('bio_week_start') ?? '0'); // 0=日, 1=月
 let showIntuition = localStorage.getItem('bio_show_intuition') === '1';  // 第4波（直感・38日）を表示するか
+// スケジュール領域の高さ（ドラッグで境界を移動。バイオリズム枠の大きさは固定）
+function applySchedH() {
+  const v = localStorage.getItem('bio_sched_h');
+  if (v) document.documentElement.style.setProperty('--sched-h', v + 'px');
+}
 
 // ---------- バイオリズム計算 ----------
 function bio(d) {
@@ -472,19 +477,8 @@ function renderWeek() {
     wkStart.getFullYear()+'/'+(wkStart.getMonth()+1)+'/'+wkStart.getDate()+
     ' — '+(e.getMonth()+1)+'/'+e.getDate();
 
-  // 時間軸は基本8時〜20時台、範囲外の予定があればそこまで自動拡張
-  let hStart = 8, hEnd = 21;
-  days.forEach(d => {
-    allEvents(dkey(d)).forEach(ev => {
-      const s = evStart(ev);
-      if (s === null) return;
-      let e = evEnd(ev);
-      e = (e === null || e <= s) ? s + 1 : e;
-      if (s < hStart) hStart = s;
-      if (e > hEnd)   hEnd = e;
-    });
-  });
-  const hours = Array.from({length: hEnd - hStart}, (_, i) => hStart + i);
+  // 時間軸は常に0〜23時（24時間）。スクロール領域内で上下に動かして全時間を表示
+  const hours = Array.from({length: 24}, (_, i) => i);
   const wdow2 = weekDow();
 
   // 終日イベント行（予定の有無に関わらず常に表示・最大2件＋+N件制限）
@@ -514,9 +508,9 @@ function renderWeek() {
   });
   allDayHtml += '</tr>';
 
-  let html = `<table style="width:100%;border-collapse:collapse;table-layout:fixed">
+  let html = `<div class="sched-scroll"><table style="width:100%;border-collapse:collapse;table-layout:fixed">
     <thead><tr>
-      <th style="width:36px;border:0.5px solid #ddd"></th>`;
+      <th style="width:36px;border:0.5px solid #ddd;position:sticky;top:0;z-index:4;background:#fafafa"></th>`;
 
   days.forEach((d,i) => {
     const b       = bio(d);
@@ -542,7 +536,7 @@ function renderWeek() {
     const stat = dayStatusIcon(d, crit2);
 
     html += `<th style="font-size:11px;font-weight:500;text-align:center;padding:3px 2px;
-      border:0.5px solid #ddd;background:${bgH};color:${fgH};cursor:pointer;width:${(100/daysLen).toFixed(2)}%"
+      border:0.5px solid #ddd;background:${bgH};color:${fgH};cursor:pointer;width:${(100/daysLen).toFixed(2)}%;position:sticky;top:0;z-index:3"
       onclick="clickDay(${d.getTime()})">
       <div style="font-size:15px;font-weight:600;line-height:1.2">${d.getDate()}${stat.icon?`<span title="${stat.title}" style="font-size:11px;margin-left:1px">${stat.icon}</span>`:''}</div>
       <div style="font-size:11px;line-height:1.2">${DOW[d.getDay()]}</div>
@@ -557,7 +551,7 @@ function renderWeek() {
   const dayLayouts = days.map(d => layoutDayEvents(allEvents(dkey(d)), gridStart, gridEnd));
 
   hours.forEach(h => {
-    html += `<tr><td style="font-size:9px;color:#aaa;text-align:right;padding-right:4px;
+    html += `<tr id="hour-${h}"><td style="font-size:9px;color:#aaa;text-align:right;padding-right:4px;
       background:#fafafa;height:26px;border:0.5px solid #ddd;white-space:nowrap">${h}:00</td>`;
     days.forEach((d, di) => {
       const b = bio(d);
@@ -586,8 +580,27 @@ function renderWeek() {
     });
     html += '</tr>';
   });
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   document.getElementById('main-area').innerHTML = html;
+
+  // スクロール領域の調整：終日行をヘッダー直下に固定し、初期位置を朝(7時)付近へ
+  requestAnimationFrame(() => {
+    const sc = document.querySelector('.sched-scroll');
+    if (!sc) return;
+    const thead = sc.querySelector('thead');
+    const headH = thead ? thead.getBoundingClientRect().height : 0;
+    // 終日行（tbody最初のtr）をヘッダー直下にスティッキー固定
+    const allDayTr = sc.querySelector('tbody tr');
+    if (allDayTr) allDayTr.querySelectorAll('td').forEach(td => {
+      td.style.position = 'sticky';
+      td.style.top = headH + 'px';
+      td.style.zIndex = '2';
+    });
+    // 初期スクロール：7時の行がヘッダー＋終日行の直下に来るように
+    const tgt = document.getElementById('hour-7');
+    const allDayH = allDayTr ? allDayTr.getBoundingClientRect().height : 0;
+    if (tgt) sc.scrollTop += tgt.getBoundingClientRect().top - sc.getBoundingClientRect().top - headH - allDayH;
+  });
 }
 
 function clickDay(ts) { selDay=new Date(ts); clickedHour=null; renderBio(); renderDetail(); }
@@ -645,6 +658,7 @@ function renderBio() {
 
   document.getElementById('bio-area').innerHTML = `
     <div class="bio-box">
+      ${(view==='week'||view==='2week')?`<div class="bio-resize" title="ドラッグで上のスケジュールとの境界を移動"></div>`:''}
       <div class="bio-box-hdr">
         <div class="bio-box-title">${title}</div>
         <div class="bio-legend">${legendHtml}</div>
@@ -655,6 +669,31 @@ function renderBio() {
       <div id="day-score-row" style="display:grid;grid-template-columns:36px repeat(${days.length},1fr);gap:1px;margin-top:4px"></div>
       ${noteHtml}
     </div>`;
+
+  // 上端ハンドルをドラッグして「スケジュールとの境界」を上下に移動。
+  // バイオリズム枠の大きさは変えず、上のスケジュール領域の高さを伸縮させる（PC=マウス / スマホ=タッチ）。
+  const rh = document.querySelector('.bio-resize');
+  if (rh) rh.addEventListener('pointerdown', e => {
+    const sc = document.querySelector('.sched-scroll');
+    if (!sc) return;
+    e.preventDefault();
+    rh.setPointerCapture(e.pointerId);
+    const y0 = e.clientY, startH = sc.getBoundingClientRect().height;
+    const setH = h => document.documentElement.style.setProperty('--sched-h', h + 'px');
+    const onMove = ev => {
+      // 下げる→スケジュール拡大（バイオは下へ）／上げる→縮小（バイオは上へ）
+      const h = Math.max(120, Math.min(window.innerHeight * 0.85, startH + (ev.clientY - y0)));
+      setH(h);
+    };
+    const onUp = () => {
+      rh.removeEventListener('pointermove', onMove);
+      rh.removeEventListener('pointerup', onUp);
+      const px = parseInt(document.documentElement.style.getPropertyValue('--sched-h'));
+      if (px) localStorage.setItem('bio_sched_h', String(px));
+    };
+    rh.addEventListener('pointermove', onMove);
+    rh.addEventListener('pointerup', onUp);
+  });
 
   requestAnimationFrame(() => {
     if (bioChart) { bioChart.destroy(); bioChart=null; }
@@ -985,6 +1024,7 @@ wkStart=getWeekStart(TODAY);
   }
 }
 init();
+applySchedH();
 applyWeatherLocToSelect();
 initWeather();
 

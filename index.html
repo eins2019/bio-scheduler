@@ -13,6 +13,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #app{width:100%;max-width:780px;margin:0 auto;padding:8px}
 /* 横に広い表（2週など）は本体内でスクロールさせ、ページ全体は横はみ出しさせない */
 #main-area{overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* 週/2週スケジュール：24時間を縦スクロール（指/ホイールで上下に動かす）。ヘッダーは固定 */
+.sched-scroll{height:var(--sched-h,58vh);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  border:0.5px solid #eee;border-radius:6px}
 
 /* ツールバー */
 .toolbar{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;
@@ -76,6 +79,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* バイオリズムパネル */
 .bio-box{border:0.5px solid #ddd;border-radius:8px;padding:10px;
   margin-top:10px;background:#fff}
+/* バイオリズム上端のリサイズハンドル（ドラッグで高さ変更） */
+.bio-resize{height:16px;margin:-6px 0 2px;cursor:ns-resize;touch-action:none;
+  display:flex;align-items:center;justify-content:center}
+.bio-resize::before{content:'';width:40px;height:4px;border-radius:2px;background:#ccc}
+.bio-resize:hover::before{background:#999}
 .bio-box-hdr{display:flex;align-items:center;justify-content:space-between;
   flex-wrap:wrap;gap:4px 10px;margin-bottom:6px}
 .bio-box-title{font-size:12px;font-weight:600;color:#222}
