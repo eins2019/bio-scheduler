@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.6';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.7';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -108,6 +108,14 @@ function critCrossList(d) {
   return out;
 }
 function isGood(b) { return b.p>0.5 && b.e>0.5 && b.i>0.5 && (!showIntuition || b.n>0.5); }
+
+// カレンダー用の状態アイコン：要注意=⚠️（ゼロクロス）/ 好調=😊 / それ以外=なし
+function dayStatusIcon(d, crit) {
+  const list = crit ?? critCrossList(d);
+  if (list.length) return { icon:'⚠️', title:'クリティカルデイ：'+list.join('・')+'の切替' };
+  if (isGood(bio(d))) return { icon:'😊', title:'好調日：'+(showIntuition?'4':'3')+'リズムがすべて高め' };
+  return { icon:'', title:'' };
+}
 function pct(v)    { return Math.round((v+1)/2*100); }
 function dkey(d) {
   const y=d.getFullYear();
@@ -379,30 +387,17 @@ function renderMonth() {
 
       const border = isSel?'1.5px solid #534AB7': isT?'1.5px solid #1F5C99':'0.5px solid #ddd';
 
-      // バイオリズムマーカー（灰色=非表示）
-      function mColor(val) {
-        if (Math.abs(val) < 0.15) return '#E24B4A';
-        if (val > 0.5)            return '#185FA5';
-        return null;
-      }
-      const mp = mColor(b.p), me = mColor(b.e), mi = mColor(b.i);
-      const mn = showIntuition ? mColor(b.n) : null;
-      const hasM = mp||me||mi||mn;
-      const mSvg = hasM ? `<svg width="${showIntuition?37:28}" height="7" style="display:inline-block;vertical-align:middle;margin-left:1px">
-        ${mp?`<rect x="0" y="0" width="6" height="6" fill="${mp}"/>`:''}
-        ${me?`<circle cx="11" cy="3" r="3" fill="${me}"/>`:''}
-        ${mi?`<polygon points="19,7 22,1 25,7" fill="${mi}"/>`:''}
-        ${mn?`<circle cx="32" cy="3" r="2.6" fill="#fff" stroke="${mn}" stroke-width="1.4"/>`:''}
-      </svg>` : '';
+      // 状態アイコン（要注意=⚠️ / 好調=😊）を日付の横に表示
+      const stat = dayStatusIcon(d, crit);
 
       html += `<td style="border:${border};border-radius:5px;height:52px;padding:3px;
         background:${bg};vertical-align:top;overflow:hidden;width:14.28%"
         onclick="event.stopPropagation();clickDay(${d.getTime()})">`;
 
-      // 日付＋マーカー横並び
+      // 日付＋状態アイコン横並び
       html += `<div style="display:flex;align-items:center;margin-bottom:1px">
-        <span style="font-size:11px;font-weight:600;color:${dnColor}">${dd}</span>${mSvg}
-        ${crit.length?`<span title="クリティカルデイ：${crit.join('・')}の切替" style="font-size:9px;margin-left:1px">⚠️</span>`:''}
+        <span style="font-size:11px;font-weight:600;color:${dnColor}">${dd}</span>
+        ${stat.icon?`<span title="${stat.title}" style="font-size:10px;margin-left:2px">${stat.icon}</span>`:''}
         ${weatherIcon(d)?`<span style="font-size:9px;margin-left:auto">${weatherIcon(d)}</span>`:''}
       </div>`;
       if (holName) {
@@ -540,50 +535,14 @@ function renderWeek() {
     else if (dow===0 || isHol2) fgH = '#C0392B';
     else if (dow===6)           fgH = '#0F6E56';
 
-    // バイオリズム3指標のマーカー
-    // 注意日=赤、好調=青、通常=灰
-    function bioColor(val) {
-      if (Math.abs(val) < 0.15) return '#E24B4A'; // 注意：赤
-      if (val > 0.5)            return '#185FA5'; // 好調：青
-      return '#bbb';                              // 通常：灰
-    }
-    const pc = bioColor(b.p);
-    const ec = bioColor(b.e);
-    const ic = bioColor(b.i);
-    const nc = showIntuition ? bioColor(b.n) : '#bbb';
-
-    // SVGマーカー（■●▲◆）灰色（通常）は非表示・詰めて表示
-    const pShow = pc !== '#bbb';
-    const eShow = ec !== '#bbb';
-    const iShow = ic !== '#bbb';
-    const nShow = nc !== '#bbb';
-
-    // 表示するマーカーだけ幅を計算して詰める
-    let mItems = [];
-    if (pShow) mItems.push(`<rect x="0" y="1" width="6" height="6" fill="${pc}"/>`);
-    if (eShow) mItems.push(`<circle cx="${mItems.length*9+3}" cy="4" r="3" fill="${ec}"/>`);
-    if (iShow) {
-      const ox = mItems.length * 9;
-      mItems.push(`<polygon points="${ox},8 ${ox+3},1 ${ox+6},8" fill="${ic}"/>`);
-    }
-    // cx/points を詰めて再計算
-    let mx = 0;
-    const mParts = [];
-    if (pShow) { mParts.push(`<rect x="${mx}" y="1" width="6" height="6" fill="${pc}"/>`); mx+=9; }
-    if (eShow) { mParts.push(`<circle cx="${mx+3}" cy="4" r="3" fill="${ec}"/>`); mx+=9; }
-    if (iShow) { mParts.push(`<polygon points="${mx},8 ${mx+3},1 ${mx+6},8" fill="${ic}"/>`); mx+=9; }
-    if (nShow) { mParts.push(`<circle cx="${mx+3}" cy="4" r="2.6" fill="#fff" stroke="${nc}" stroke-width="1.4"/>`); mx+=9; }
-    const mw = mx > 0 ? mx-3 : 0;
-    const markers = mw > 0
-      ? `<svg width="${mw}" height="8" style="display:inline-block;vertical-align:middle;margin-left:3px">${mParts.join('')}</svg>`
-      : '';
+    // 状態アイコン（要注意=⚠️ / 好調=😊）を日付の横に表示
+    const stat = dayStatusIcon(d, crit2);
 
     html += `<th style="font-size:11px;font-weight:500;text-align:center;padding:3px 2px;
       border:0.5px solid #ddd;background:${bgH};color:${fgH};cursor:pointer;width:${(100/daysLen).toFixed(2)}%"
       onclick="clickDay(${d.getTime()})">
-      <div style="font-size:15px;font-weight:600;line-height:1.2">${d.getDate()}</div>
-      <div style="font-size:11px;line-height:1.2">${DOW[d.getDay()]}${markers}</div>
-      ${crit2.length?`<div title="クリティカルデイ：${crit2.join('・')}の切替" style="font-size:11px;line-height:1.3">⚠️</div>`:''}
+      <div style="font-size:15px;font-weight:600;line-height:1.2">${d.getDate()}${stat.icon?`<span title="${stat.title}" style="font-size:11px;margin-left:1px">${stat.icon}</span>`:''}</div>
+      <div style="font-size:11px;line-height:1.2">${DOW[d.getDay()]}</div>
       ${weatherIcon(d)?`<div style="font-size:11px;line-height:1.3">${weatherIcon(d)}</div>`:''}
       ${holName2?`<div style="font-size:8px;font-weight:normal;line-height:1.2">${holName2}</div>`:''}
     </th>`;
@@ -1021,7 +980,7 @@ function toggleWeekStart() {
 // ボタンのラベルを現在の週開始曜日に合わせる
 function updateWeekStartBtn() {
   const b = document.getElementById('week-start-btn');
-  if (b) b.textContent = weekStart0 === 1 ? '月曜' : '日曜';
+  if (b) b.textContent = weekStart0 === 1 ? '月曜始' : '日曜始';
 }
 
 // ---------- 今日の日付・時刻（1秒ごとに更新） ----------

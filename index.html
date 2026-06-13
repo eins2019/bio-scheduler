@@ -12,8 +12,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #app{max-width:780px;margin:0 auto;padding:8px}
 
 /* ツールバー */
-.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;
-  background:#fff;padding:8px 10px;border-radius:8px;border:0.5px 1cap #ddd}
+.toolbar{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;
+  background:#fff;padding:8px 10px;border-radius:8px;border:0.5px solid #ddd}
+.toolbar-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .toolbar h1{font-size:15px;font-weight:600;color:#1F5C99;margin-right:4px}
 .toolbar label{font-size:12px;color:#666}
 .toolbar input[type=date]{font-size:12px;padding:4px 8px;border:1px solid #ccc;border-radius:6px}
@@ -110,43 +111,47 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   <!-- ツールバー -->
   <div class="toolbar">
-    <h1>Bioスケジューラ <span id="app-ver" style="font-size:9px;color:#aaa;font-weight:normal"></span></h1>
-    <label>生年月日：</label>
-    <input type="date" id="bday" value="1975-04-01" onchange="applyBday()">
-    <button onclick="goToday()" style="font-size:12px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">今日</button>
-    <button id="gcal-btn" disabled onclick="handleGcalToggle()" title="クリックで連携／連携解除">Googleカレンダーと連携</button>
-    <button id="week-start-btn" onclick="toggleWeekStart()" title="クリックで週の開始曜日を切替"
-      style="font-size:11px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">日曜</button>
-    <label title="ユング「直観」に対応する第4波（38日周期）を追加表示します"
-      style="font-size:11px;color:#666;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap">
-      <input type="checkbox" id="intuition-toggle" onchange="setShowIntuition(this.checked)">直感波</label>
-    <select id="weather-loc" onchange="setWeatherLoc(this.value)"
-      style="font-size:11px;padding:4px 6px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">
-      <option value="geo">天気:現在地</option>
-      <option value="札幌">札幌</option>
-      <option value="仙台">仙台</option>
-      <option value="東京">東京</option>
-      <option value="横浜">横浜</option>
-      <option value="新潟">新潟</option>
-      <option value="金沢">金沢</option>
-      <option value="名古屋">名古屋</option>
-      <option value="大阪">大阪</option>
-      <option value="広島">広島</option>
-      <option value="高松">高松</option>
-      <option value="福岡">福岡</option>
-      <option value="鹿児島">鹿児島</option>
-      <option value="那覇">那覇</option>
-      <option value="custom">都市名で指定…</option>
-    </select>
-    <div class="tabs">
-      <div class="tab active" id="tab-m" onclick="setView('month')">月</div>
-      <div class="tab" id="tab-w" onclick="setView('week')">週</div>
-      <div class="tab" id="tab-2w" onclick="setView('2week')">2週</div>
+    <!-- 上段：タイトル・生年月日・ビュー切替 -->
+    <div class="toolbar-row">
+      <h1>Bioスケジューラ <span id="app-ver" style="font-size:9px;color:#aaa;font-weight:normal"></span></h1>
+      <label>生年月日：</label>
+      <input type="date" id="bday" value="1975-04-01" onchange="applyBday()">
+      <div class="tabs">
+        <div class="tab active" id="tab-m" onclick="setView('month')">月</div>
+        <div class="tab" id="tab-w" onclick="setView('week')">週</div>
+        <div class="tab" id="tab-2w" onclick="setView('2week')">2週</div>
+      </div>
+    </div>
+    <!-- 下段：日付時刻・操作（今日・直感線・連携・週開始・天気） -->
+    <div class="toolbar-row">
+      <span id="clock-bar" style="font-size:12px;color:#666;white-space:nowrap"></span>
+      <button onclick="goToday()" style="font-size:12px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">今日</button>
+      <label title="ユング「直観」に対応する第4波（38日周期）を追加表示します"
+        style="font-size:11px;color:#666;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap">
+        <input type="checkbox" id="intuition-toggle" onchange="setShowIntuition(this.checked)">直感線</label>
+      <button id="gcal-btn" disabled onclick="handleGcalToggle()" title="クリックで連携／連携解除">Googleカレンダーと連携</button>
+      <button id="week-start-btn" onclick="toggleWeekStart()" title="クリックで週の開始曜日を切替"
+        style="font-size:11px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">日曜始</button>
+      <select id="weather-loc" onchange="setWeatherLoc(this.value)"
+        style="font-size:11px;padding:4px 6px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">
+        <option value="geo">天気:現在地</option>
+        <option value="札幌">札幌</option>
+        <option value="仙台">仙台</option>
+        <option value="東京">東京</option>
+        <option value="横浜">横浜</option>
+        <option value="新潟">新潟</option>
+        <option value="金沢">金沢</option>
+        <option value="名古屋">名古屋</option>
+        <option value="大阪">大阪</option>
+        <option value="広島">広島</option>
+        <option value="高松">高松</option>
+        <option value="福岡">福岡</option>
+        <option value="鹿児島">鹿児島</option>
+        <option value="那覇">那覇</option>
+        <option value="custom">都市名で指定…</option>
+      </select>
     </div>
   </div>
-
-  <!-- 今日の日付・時刻 -->
-  <div id="clock-bar" style="font-size:12px;color:#666;margin:-2px 0 8px 4px"></div>
 
   <!-- ナビゲーション -->
   <div class="nav">

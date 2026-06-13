@@ -48,13 +48,15 @@ function initGis() {
 function maybeEnableButton() {
   if (!gapiInited || !gisInited) return;
   const btn = document.getElementById('gcal-btn');
-  if (btn) btn.disabled = false;
+  if (!btn) return;
+  btn.disabled = false;
 
-  // 前回連携済みなら自動再連携
+  // 前回連携済みでも、起動時の自動 requestAccessToken はクリックを伴わないため
+  // ブラウザにポップアップをブロックされる。自動実行はやめ、クリックで再連携する。
+  // （キャッシュ済みの予定はすでに表示されている）
   if (localStorage.getItem(STORAGE_KEY) === '1') {
-    console.log('自動再連携を試みます...');
-    // prompt:'' で同意画面なしでトークン取得
-    tokenClient.requestAccessToken({ prompt: '' });
+    btn.textContent = 'Google再連携';
+    btn.title = '前回連携済み。クリックして最新の予定を取得';
   }
 }
 
@@ -70,13 +72,10 @@ function handleGcalToggle() {
 
 // ---------- 連携ボタンクリック（手動） ----------
 function handleAuthClick() {
-  if (gapi.client.getToken() === null) {
-    // 初回：同意画面を表示
-    tokenClient.requestAccessToken({ prompt: 'consent' });
-  } else {
-    // 再取得：同意画面スキップ
-    tokenClient.requestAccessToken({ prompt: '' });
-  }
+  // 前回連携済み、または既にトークンがあるなら同意画面をスキップ（silent）。
+  // クリック起点なので silent でもブラウザにブロックされない。
+  const granted = localStorage.getItem(STORAGE_KEY) === '1' || gapi.client.getToken() !== null;
+  tokenClient.requestAccessToken({ prompt: granted ? '' : 'consent' });
 }
 
 // ---------- カレンダー予定を取得 ----------
