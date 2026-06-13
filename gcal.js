@@ -58,6 +58,16 @@ function maybeEnableButton() {
   }
 }
 
+// ---------- 連携ボタン：連携／解除をトグル ----------
+function handleGcalToggle() {
+  const btn = document.getElementById('gcal-btn');
+  if (btn && btn.classList.contains('connected')) {
+    handleSignoutClick();   // 連携済み → 解除
+  } else {
+    handleAuthClick();      // 未連携 → 連携
+  }
+}
+
 // ---------- 連携ボタンクリック（手動） ----------
 function handleAuthClick() {
   if (gapi.client.getToken() === null) {
@@ -193,9 +203,8 @@ function resetBtn() {
     btn.textContent = 'Googleカレンダーと連携';
     btn.classList.remove('connected');
     btn.disabled = false;
+    btn.title = 'クリックで連携／連携解除';
   }
-  const signout = document.getElementById('gcal-signout');
-  if (signout) signout.style.display = 'none';
 }
 
 // ---------- 初期化（ライブラリ読み込み待ち） ----------

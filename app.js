@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.4';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.6';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -68,6 +68,7 @@ let holidays   = {};   // 祝日 { 'YYYY-MM-DD': '祝日名' }
 let bioChart   = null;
 let clickedHour = null;
 let weekStart0 = parseInt(localStorage.getItem('bio_week_start') ?? '0'); // 0=日, 1=月
+let showIntuition = localStorage.getItem('bio_show_intuition') === '1';  // 第4波（直感・38日）を表示するか
 
 // ---------- バイオリズム計算 ----------
 function bio(d) {
@@ -75,10 +76,21 @@ function bio(d) {
   return {
     p: Math.sin(2 * Math.PI * days / 23),
     e: Math.sin(2 * Math.PI * days / 28),
-    i: Math.sin(2 * Math.PI * days / 33)
+    i: Math.sin(2 * Math.PI * days / 33),
+    n: Math.sin(2 * Math.PI * days / 38)   // 直感（第4波・38日）
   };
 }
-function isCrit(b) { return Math.abs(b.p)<0.15 || Math.abs(b.e)<0.15 || Math.abs(b.i)<0.15; }
+
+// バイオリズム各波のメタ情報（ユング心理機能の対応つき）
+const RHYTHM_META = [
+  { key:'p', label:'身体', full:'身体P', color:'#378ADD', period:23, jung:'感覚（Sensation）', note:'五感・身体を通して「今ここ」の現実をとらえる働き' },
+  { key:'e', label:'感情', full:'感情S', color:'#D85A30', period:28, jung:'感情（Feeling）', note:'物事の価値や好き嫌いを判断する働き' },
+  { key:'i', label:'知性', full:'知性I', color:'#1D9E75', period:33, jung:'思考（Thinking）', note:'論理・分析で物事を理解する働き' },
+  { key:'n', label:'直感', full:'直感N', color:'#8E5BD9', period:38, jung:'直観（Intuition）', note:'可能性やひらめきを無意識からとらえる働き' },
+];
+// 表示対象の波（直感トグルOFFなら標準3波のみ）
+function activeRhythms() { return showIntuition ? RHYTHM_META : RHYTHM_META.slice(0, 3); }
+function isCrit(b) { return Math.abs(b.p)<0.15 || Math.abs(b.e)<0.15 || Math.abs(b.i)<0.15 || (showIntuition && Math.abs(b.n)<0.15); }
 
 // クリティカルデイ判定：波が0をクロスするリズム名の配列を返す
 // （前後の日と符号を比較し、クロスは0に近い方の日に1日だけ割り当てる）
@@ -87,7 +99,7 @@ function critCrossList(d) {
   const next = new Date(d); next.setDate(next.getDate()+1);
   const bp = bio(prev), b0 = bio(d), bn = bio(next);
   const out = [];
-  [['p','身体'],['e','感情'],['i','知性']].forEach(([k,label]) => {
+  activeRhythms().map(m => [m.key, m.label]).forEach(([k,label]) => {
     const v = b0[k];
     const crossPrev = (bp[k] < 0) !== (v < 0) && Math.abs(v) <= Math.abs(bp[k]);
     const crossNext = (v < 0) !== (bn[k] < 0) && Math.abs(v) <  Math.abs(bn[k]);
@@ -95,7 +107,7 @@ function critCrossList(d) {
   });
   return out;
 }
-function isGood(b) { return b.p>0.5 && b.e>0.5 && b.i>0.5; }
+function isGood(b) { return b.p>0.5 && b.e>0.5 && b.i>0.5 && (!showIntuition || b.n>0.5); }
 function pct(v)    { return Math.round((v+1)/2*100); }
 function dkey(d) {
   const y=d.getFullYear();
@@ -374,11 +386,13 @@ function renderMonth() {
         return null;
       }
       const mp = mColor(b.p), me = mColor(b.e), mi = mColor(b.i);
-      const hasM = mp||me||mi;
-      const mSvg = hasM ? `<svg width="28" height="7" style="display:inline-block;vertical-align:middle;margin-left:1px">
+      const mn = showIntuition ? mColor(b.n) : null;
+      const hasM = mp||me||mi||mn;
+      const mSvg = hasM ? `<svg width="${showIntuition?37:28}" height="7" style="display:inline-block;vertical-align:middle;margin-left:1px">
         ${mp?`<rect x="0" y="0" width="6" height="6" fill="${mp}"/>`:''}
         ${me?`<circle cx="11" cy="3" r="3" fill="${me}"/>`:''}
         ${mi?`<polygon points="19,7 22,1 25,7" fill="${mi}"/>`:''}
+        ${mn?`<circle cx="32" cy="3" r="2.6" fill="#fff" stroke="${mn}" stroke-width="1.4"/>`:''}
       </svg>` : '';
 
       html += `<td style="border:${border};border-radius:5px;height:52px;padding:3px;
@@ -536,11 +550,13 @@ function renderWeek() {
     const pc = bioColor(b.p);
     const ec = bioColor(b.e);
     const ic = bioColor(b.i);
+    const nc = showIntuition ? bioColor(b.n) : '#bbb';
 
-    // SVGマーカー（■●▲）灰色（通常）は非表示・詰めて表示
+    // SVGマーカー（■●▲◆）灰色（通常）は非表示・詰めて表示
     const pShow = pc !== '#bbb';
     const eShow = ec !== '#bbb';
     const iShow = ic !== '#bbb';
+    const nShow = nc !== '#bbb';
 
     // 表示するマーカーだけ幅を計算して詰める
     let mItems = [];
@@ -556,6 +572,7 @@ function renderWeek() {
     if (pShow) { mParts.push(`<rect x="${mx}" y="1" width="6" height="6" fill="${pc}"/>`); mx+=9; }
     if (eShow) { mParts.push(`<circle cx="${mx+3}" cy="4" r="3" fill="${ec}"/>`); mx+=9; }
     if (iShow) { mParts.push(`<polygon points="${mx},8 ${mx+3},1 ${mx+6},8" fill="${ic}"/>`); mx+=9; }
+    if (nShow) { mParts.push(`<circle cx="${mx+3}" cy="4" r="2.6" fill="#fff" stroke="${nc}" stroke-width="1.4"/>`); mx+=9; }
     const mw = mx > 0 ? mx-3 : 0;
     const markers = mw > 0
       ? `<svg width="${mw}" height="8" style="display:inline-block;vertical-align:middle;margin-left:3px">${mParts.join('')}</svg>`
@@ -636,35 +653,45 @@ function renderBio() {
   const d0=days[0], d_last=days[days.length-1];
   const title = (d0.getMonth()+1)+'/'+d0.getDate()+' — '+(d_last.getMonth()+1)+'/'+d_last.getDate()+' のバイオリズム';
 
+  const metas = activeRhythms();
+  // 凡例マーカー（身体=■ 感情=● 知性=▲ 直感=○中空丸）
+  const legMarker = m =>
+    m.key==='p' ? `<rect x="7" y="2" width="8" height="8" fill="${m.color}"/>` :
+    m.key==='e' ? `<circle cx="11" cy="6" r="4" fill="${m.color}"/>` :
+    m.key==='i' ? `<polygon points="11,1 16,11 6,11" fill="${m.color}"/>` :
+                  `<circle cx="11" cy="6" r="3.5" fill="#fff" stroke="${m.color}" stroke-width="2"/>`;
+  // 直感の凡例線は点線
+  const legLine = m => m.key==='n'
+    ? `<line x1="0" y1="6" x2="22" y2="6" stroke="${m.color}" stroke-width="2" stroke-dasharray="3,2"/>`
+    : `<line x1="0" y1="6" x2="22" y2="6" stroke="${m.color}" stroke-width="2"/>`;
+  const legendHtml = metas.map(m => `
+    <div class="bleg" title="ユング：${m.jung}／${m.note}">
+      <svg width="22" height="12" style="vertical-align:middle">
+        ${legLine(m)}
+        ${legMarker(m)}
+      </svg>${m.full}
+    </div>`).join('');
+  // ユング心理機能の注釈（折りたたみ）
+  const noteHtml = `
+    <details style="margin-top:6px">
+      <summary style="font-size:10px;color:#888;cursor:pointer">ⓘ 各波の意味（ユング心理機能との対応）</summary>
+      <div style="font-size:10px;color:#666;line-height:1.7;margin-top:4px">
+        ${metas.map(m => `<div><span style="color:${m.color};font-weight:600">${m.full}</span>（${m.period}日）― ユング「${m.jung}」：${m.note}。</div>`).join('')}
+        <div style="color:#aaa;margin-top:3px;font-size:9px">※バイオリズムの4波を、C.G.ユングの4つの心理機能になぞらえた参考解釈です。</div>
+      </div>
+    </details>`;
+
   document.getElementById('bio-area').innerHTML = `
     <div class="bio-box">
       <div class="bio-box-hdr">
         <div class="bio-box-title">${title}</div>
-        <div class="bio-legend">
-          <div class="bleg">
-            <svg width="22" height="12" style="vertical-align:middle">
-              <line x1="0" y1="6" x2="22" y2="6" stroke="#378ADD" stroke-width="2"/>
-              <rect x="7" y="2" width="8" height="8" fill="#378ADD"/>
-            </svg>身体P
-          </div>
-          <div class="bleg">
-            <svg width="22" height="12" style="vertical-align:middle">
-              <line x1="0" y1="6" x2="22" y2="6" stroke="#D85A30" stroke-width="2"/>
-              <circle cx="11" cy="6" r="4" fill="#D85A30"/>
-            </svg>感情S
-          </div>
-          <div class="bleg">
-            <svg width="22" height="12" style="vertical-align:middle">
-              <line x1="0" y1="6" x2="22" y2="6" stroke="#1D9E75" stroke-width="2"/>
-              <polygon points="11,1 16,11 6,11" fill="#1D9E75"/>
-            </svg>知性I
-          </div>
-        </div>
+        <div class="bio-legend">${legendHtml}</div>
       </div>
       <div style="position:relative;height:160px">
         <canvas id="bioChart" role="img" aria-label="週のバイオリズムグラフ"></canvas>
       </div>
       <div id="day-score-row" style="display:grid;grid-template-columns:36px repeat(${days.length},1fr);gap:1px;margin-top:4px"></div>
+      ${noteHtml}
     </div>`;
 
   requestAnimationFrame(() => {
@@ -672,27 +699,34 @@ function renderBio() {
     const canvas = document.getElementById('bioChart');
     if (!canvas) return;
 
-    const labels=[], pData=[], eData=[], iData=[];
+    const labels=[];
+    const series = {}; metas.forEach(m => series[m.key] = []);
     days.forEach(d => {
       labels.push((d.getMonth()+1)+'/'+d.getDate()+'\n'+DOW[d.getDay()]);
       const b = bio(d);
-      pData.push(parseFloat(b.p.toFixed(3)));
-      eData.push(parseFloat(b.e.toFixed(3)));
-      iData.push(parseFloat(b.i.toFixed(3)));
+      metas.forEach(m => series[m.key].push(parseFloat(b[m.key].toFixed(3))));
     });
 
     const mk = (label,data,color,marker) => ({
       label,data,borderColor:color,borderWidth:2,backgroundColor:color,
       pointStyle:marker,pointRadius:6,pointHoverRadius:8,fill:false,tension:0.4
     });
+    // Chart.jsのpointStyle（直感=中空の丸）
+    const CHART_MARKER = { p:'rect', e:'circle', i:'triangle', n:'circle' };
+    const datasets = metas.map(m => {
+      const ds = mk(m.full, series[m.key], m.color, CHART_MARKER[m.key]);
+      if (m.key === 'n') {              // 直感：点線＋中空（白抜き）の丸
+        ds.borderDash = [5, 4];
+        ds.pointBackgroundColor = '#fff';
+        ds.pointBorderColor = m.color;
+        ds.pointBorderWidth = 2;
+      }
+      return ds;
+    });
 
     bioChart = new Chart(canvas, {
       type:'line',
-      data:{ labels, datasets:[
-        mk('身体P',pData,'#378ADD','rect'),
-        mk('感情S',eData,'#D85A30','circle'),
-        mk('知性I',iData,'#1D9E75','triangle'),
-      ]},
+      data:{ labels, datasets },
       options:{
         responsive:true, maintainAspectRatio:false, animation:{duration:300},
         plugins:{ legend:{display:false},
@@ -715,9 +749,7 @@ function renderBio() {
       const isSel = selDay && selDay.getTime()===d.getTime();
       const bg = isSel?'background:#f0f0f0;border-radius:4px':'';
       return `<div style="text-align:center;padding:2px 0;${bg}">
-        <div style="height:3px;background:#378ADD;width:${pct(b.p)}%;max-width:100%;margin:0 auto 1px"></div>
-        <div style="height:3px;background:#D85A30;width:${pct(b.e)}%;max-width:100%;margin:0 auto 1px"></div>
-        <div style="height:3px;background:#1D9E75;width:${pct(b.i)}%;max-width:100%;margin:0 auto 1px"></div>
+        ${metas.map(m => `<div style="height:3px;background:${m.color};width:${pct(b[m.key])}%;max-width:100%;margin:0 auto 1px"></div>`).join('')}
         <div style="font-size:8px;color:#aaa">${DOW[d.getDay()]}</div>
       </div>`;
     }).join('');
@@ -730,13 +762,13 @@ function renderDetail() {
   const b   = bio(selDay);
   const k   = dkey(selDay);
   const evs = allEvents(k);
-  const pp=pct(b.p), pe=pct(b.e), pi=pct(b.i);
+  const pp=pct(b.p), pe=pct(b.e), pi=pct(b.i), pn=pct(b.n);
 
   let adv='',acls='';
   const cross = critCrossList(selDay);
   if (cross.length)          { adv='⚠️ クリティカルデイ：'+cross.join('・')+'リズムが切り替わる日です。重要な予定は慎重に。'; acls='danger'; }
   else if (isCrit(b))        { adv='要注意日：リズムの切り替わり付近です。重要な予定は慎重に。'; acls='danger'; }
-  else if (isGood(b))        { adv='好調日：3リズムがすべて高め。重要な予定に最適です。';    acls='good'; }
+  else if (isGood(b))        { adv='好調日：'+(showIntuition?'4':'3')+'リズムがすべて高め。重要な予定に最適です。';    acls='good'; }
   else if (b.p<-0.3||b.e<-0.3) { adv='やや低調：無理のないスケジュールをお勧めします。';   acls='caution'; }
   else                       { adv='通常日：バランスよく活動できます。';                      acls='good'; }
 
@@ -759,10 +791,11 @@ function renderDetail() {
   document.getElementById('detail-area').innerHTML = `
     <div class="detail">
       <div class="detail-date">${selDay.getFullYear()}/${selDay.getMonth()+1}/${selDay.getDate()}（${DOW[selDay.getDay()]}）</div>
-      <div class="scores3">
+      <div class="scores3" style="grid-template-columns:repeat(${showIntuition?4:3},1fr)">
         <div class="s3"><div class="s3-l">身体P</div><div class="s3-v" style="color:#185FA5">${pp}%</div></div>
         <div class="s3"><div class="s3-l">感情S</div><div class="s3-v" style="color:#993C1D">${pe}%</div></div>
         <div class="s3"><div class="s3-l">知性I</div><div class="s3-v" style="color:#0F6E56">${pi}%</div></div>
+        ${showIntuition?`<div class="s3"><div class="s3-l">直感N</div><div class="s3-v" style="color:#7A3FB8">${pn}%</div></div>`:''}
       </div>
       <div class="adv ${acls}">${adv}</div>
       ${evHtml}
@@ -887,7 +920,7 @@ function renderGcalEvents(evList) {
   const btn = document.getElementById('gcal-btn');
   btn.textContent = '連携済み ✓';
   btn.classList.add('connected');
-  document.getElementById('gcal-signout').style.display = 'inline';
+  btn.title = 'クリックで連携解除';
 }
 
 function clearGcalEvents() {
@@ -896,23 +929,36 @@ function clearGcalEvents() {
   const btn = document.getElementById('gcal-btn');
   btn.textContent = 'Googleカレンダーと連携';
   btn.classList.remove('connected');
-  document.getElementById('gcal-signout').style.display = 'none';
+  btn.title = 'クリックで連携／連携解除';
   render();
 }
 
 // ---------- 初期化 ----------
 const BDAY_KEY = 'bio_bday';
-function init() {
+
+// 生年月日を反映（表示位置はそのまま再計算）
+function applyBday() {
   const v = document.getElementById('bday').value;
   if (!v) return;
   localStorage.setItem(BDAY_KEY, v);
   const [y,m,d] = v.split('-').map(Number);
   bday = new Date(y,m-1,d); bday.setHours(0,0,0,0);
-  yr=TODAY.getFullYear(); mo=TODAY.getMonth();
-  const ws=getWeekStart(TODAY);
-  wkStart=ws; selDay=null; selWkStart=null;
   if (bioChart) { bioChart.destroy(); bioChart=null; }
   render();
+}
+
+// 今日へ移動（現在のビュー種別は維持）
+function goToday() {
+  yr=TODAY.getFullYear(); mo=TODAY.getMonth();
+  wkStart=getWeekStart(TODAY);
+  selDay=null; selWkStart=null;
+  render();
+}
+
+// 起動時の初期化：生年月日を反映し今日を表示
+function init() {
+  applyBday();
+  goToday();
 }
 
 yr=TODAY.getFullYear(); mo=TODAY.getMonth();
@@ -951,14 +997,43 @@ initWeather();
   }, { passive: true });
 })();
 
+// ---------- 第4波（直感）の表示切替 ----------
+function setShowIntuition(on) {
+  showIntuition = !!on;
+  localStorage.setItem('bio_show_intuition', showIntuition ? '1' : '0');
+  if (bioChart) { bioChart.destroy(); bioChart = null; }
+  render();
+}
+
 // ---------- 週開始曜日の切替 ----------
 function setWeekStart(val) {
   weekStart0 = parseInt(val);
   localStorage.setItem('bio_week_start', val);
   wkStart = getWeekStart(TODAY);
   selDay = null; selWkStart = null;
+  updateWeekStartBtn();
   render();
 }
+// 週開始曜日トグル（日曜 ⇄ 月曜）
+function toggleWeekStart() {
+  setWeekStart(weekStart0 === 1 ? 0 : 1);
+}
+// ボタンのラベルを現在の週開始曜日に合わせる
+function updateWeekStartBtn() {
+  const b = document.getElementById('week-start-btn');
+  if (b) b.textContent = weekStart0 === 1 ? '月曜' : '日曜';
+}
+
+// ---------- 今日の日付・時刻（1秒ごとに更新） ----------
+function tickClock() {
+  const el = document.getElementById('clock-bar');
+  if (!el) return;
+  const n = new Date();
+  const p = x => String(x).padStart(2, '0');
+  el.textContent = `${n.getFullYear()}/${n.getMonth()+1}/${n.getDate()}（${DOW[n.getDay()]}） ${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
+}
+tickClock();
+setInterval(tickClock, 1000);
 
 // ---------- 祝日データのセット（gcal.jsから呼ばれる） ----------
 function setHolidays(data) {
