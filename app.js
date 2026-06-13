@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.3';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.4';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -79,6 +79,22 @@ function bio(d) {
   };
 }
 function isCrit(b) { return Math.abs(b.p)<0.15 || Math.abs(b.e)<0.15 || Math.abs(b.i)<0.15; }
+
+// クリティカルデイ判定：波が0をクロスするリズム名の配列を返す
+// （前後の日と符号を比較し、クロスは0に近い方の日に1日だけ割り当てる）
+function critCrossList(d) {
+  const prev = new Date(d); prev.setDate(prev.getDate()-1);
+  const next = new Date(d); next.setDate(next.getDate()+1);
+  const bp = bio(prev), b0 = bio(d), bn = bio(next);
+  const out = [];
+  [['p','身体'],['e','感情'],['i','知性']].forEach(([k,label]) => {
+    const v = b0[k];
+    const crossPrev = (bp[k] < 0) !== (v < 0) && Math.abs(v) <= Math.abs(bp[k]);
+    const crossNext = (v < 0) !== (bn[k] < 0) && Math.abs(v) <  Math.abs(bn[k]);
+    if (v === 0 || crossPrev || crossNext) out.push(label);
+  });
+  return out;
+}
 function isGood(b) { return b.p>0.5 && b.e>0.5 && b.i>0.5; }
 function pct(v)    { return Math.round((v+1)/2*100); }
 function dkey(d) {
@@ -330,6 +346,7 @@ function renderMonth() {
       const b   = bio(d);
       const k   = dkey(d);
       const evs = allEvents(k);
+      const crit= critCrossList(d);   // 波が0をクロスするリズム名（クリティカルデイ）
       const isT = d.getTime()===TODAY.getTime();
       const isHol  = isHoliday(d);
       const dow2   = d.getDay();
@@ -371,6 +388,7 @@ function renderMonth() {
       // 日付＋マーカー横並び
       html += `<div style="display:flex;align-items:center;margin-bottom:1px">
         <span style="font-size:11px;font-weight:600;color:${dnColor}">${dd}</span>${mSvg}
+        ${crit.length?`<span title="クリティカルデイ：${crit.join('・')}の切替" style="font-size:9px;margin-left:1px">⚠️</span>`:''}
         ${weatherIcon(d)?`<span style="font-size:9px;margin-left:auto">${weatherIcon(d)}</span>`:''}
       </div>`;
       if (holName) {
@@ -494,6 +512,7 @@ function renderWeek() {
     const dow     = d.getDay();
     const isHol2  = isHoliday(d);
     const holName2= getHoliday(d);
+    const crit2   = critCrossList(d);   // クリティカルデイ（波が0をクロスするリズム）
 
     // 背景色：日・祝=薄赤、土=薄緑、今日=薄青、それ以外=白
     let bgH = '#fff';
@@ -547,6 +566,7 @@ function renderWeek() {
       onclick="clickDay(${d.getTime()})">
       <div style="font-size:15px;font-weight:600;line-height:1.2">${d.getDate()}</div>
       <div style="font-size:11px;line-height:1.2">${DOW[d.getDay()]}${markers}</div>
+      ${crit2.length?`<div title="クリティカルデイ：${crit2.join('・')}の切替" style="font-size:11px;line-height:1.3">⚠️</div>`:''}
       ${weatherIcon(d)?`<div style="font-size:11px;line-height:1.3">${weatherIcon(d)}</div>`:''}
       ${holName2?`<div style="font-size:8px;font-weight:normal;line-height:1.2">${holName2}</div>`:''}
     </th>`;
@@ -713,7 +733,9 @@ function renderDetail() {
   const pp=pct(b.p), pe=pct(b.e), pi=pct(b.i);
 
   let adv='',acls='';
-  if (isCrit(b))             { adv='要注意日：リズムの切り替わりです。重要な予定は慎重に。'; acls='danger'; }
+  const cross = critCrossList(selDay);
+  if (cross.length)          { adv='⚠️ クリティカルデイ：'+cross.join('・')+'リズムが切り替わる日です。重要な予定は慎重に。'; acls='danger'; }
+  else if (isCrit(b))        { adv='要注意日：リズムの切り替わり付近です。重要な予定は慎重に。'; acls='danger'; }
   else if (isGood(b))        { adv='好調日：3リズムがすべて高め。重要な予定に最適です。';    acls='good'; }
   else if (b.p<-0.3||b.e<-0.3) { adv='やや低調：無理のないスケジュールをお勧めします。';   acls='caution'; }
   else                       { adv='通常日：バランスよく活動できます。';                      acls='good'; }
