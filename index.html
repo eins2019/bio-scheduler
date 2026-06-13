@@ -126,10 +126,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="toolbar-row">
       <span id="clock-bar" style="font-size:12px;color:#666;white-space:nowrap"></span>
       <button onclick="goToday()" style="font-size:12px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">今日</button>
-      <label title="ユング「直観」に対応する第4波（38日周期）を追加表示します"
-        style="font-size:11px;color:#666;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap">
-        <input type="checkbox" id="intuition-toggle" onchange="setShowIntuition(this.checked)">直感線</label>
-      <button id="gcal-btn" disabled onclick="handleGcalToggle()" title="クリックで連携／連携解除">Googleカレンダーと連携</button>
       <button id="week-start-btn" onclick="toggleWeekStart()" title="クリックで週の開始曜日を切替"
         style="font-size:11px;padding:4px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">日曜始</button>
       <select id="weather-loc" onchange="setWeatherLoc(this.value)"
@@ -150,6 +146,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <option value="那覇">那覇</option>
         <option value="custom">都市名で指定…</option>
       </select>
+      <label title="ユング「直観」に対応する第4波（38日周期）を追加表示します"
+        style="font-size:11px;color:#666;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;margin-left:auto">
+        <input type="checkbox" id="intuition-toggle" onchange="setShowIntuition(this.checked)">直感線</label>
+      <button id="gcal-btn" disabled onclick="handleGcalToggle()" title="クリックで連携／連携解除">Googleカレンダーと連携</button>
     </div>
   </div>
 

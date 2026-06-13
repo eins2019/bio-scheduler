@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.7';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.8';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -107,13 +107,16 @@ function critCrossList(d) {
   });
   return out;
 }
-function isGood(b) { return b.p>0.5 && b.e>0.5 && b.i>0.5 && (!showIntuition || b.n>0.5); }
+// 好調日＝全リズムが高調期（>0）。バイオリズムの慣習に準拠
+function isGood(b) { return b.p>0 && b.e>0 && b.i>0 && (!showIntuition || b.n>0); }
 
 // カレンダー用の状態アイコン：要注意=⚠️（ゼロクロス）/ 好調=😊 / それ以外=なし
 function dayStatusIcon(d, crit) {
   const list = crit ?? critCrossList(d);
   if (list.length) return { icon:'⚠️', title:'クリティカルデイ：'+list.join('・')+'の切替' };
-  if (isGood(bio(d))) return { icon:'😊', title:'好調日：'+(showIntuition?'4':'3')+'リズムがすべて高め' };
+  const b = bio(d);
+  // 全リズム高調期（>0）かつ0近傍の要注意がない日を好調日とする
+  if (isGood(b) && !isCrit(b)) return { icon:'😊', title:'好調日：全リズムが高調期' };
   return { icon:'', title:'' };
 }
 function pct(v)    { return Math.round((v+1)/2*100); }
@@ -727,7 +730,7 @@ function renderDetail() {
   const cross = critCrossList(selDay);
   if (cross.length)          { adv='⚠️ クリティカルデイ：'+cross.join('・')+'リズムが切り替わる日です。重要な予定は慎重に。'; acls='danger'; }
   else if (isCrit(b))        { adv='要注意日：リズムの切り替わり付近です。重要な予定は慎重に。'; acls='danger'; }
-  else if (isGood(b))        { adv='好調日：'+(showIntuition?'4':'3')+'リズムがすべて高め。重要な予定に最適です。';    acls='good'; }
+  else if (isGood(b))        { adv='好調日：'+(showIntuition?'4':'3')+'リズムすべてが高調期。重要な予定に最適です。';    acls='good'; }
   else if (b.p<-0.3||b.e<-0.3) { adv='やや低調：無理のないスケジュールをお勧めします。';   acls='caution'; }
   else                       { adv='通常日：バランスよく活動できます。';                      acls='good'; }
 
