@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.13';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.16';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -73,6 +73,11 @@ let showIntuition = localStorage.getItem('bio_show_intuition') === '1';  // 第4
 function applySchedH() {
   const v = localStorage.getItem('bio_sched_h');
   if (v) document.documentElement.style.setProperty('--sched-h', v + 'px');
+}
+// 終日欄の高さ（下端ドラッグで調整）
+function applyAlldayH() {
+  const v = localStorage.getItem('bio_allday_h');
+  if (v) document.documentElement.style.setProperty('--allday-h', v + 'px');
 }
 
 // ---------- バイオリズム計算 ----------
@@ -467,9 +472,39 @@ function closeEvPopup() {
   if (ov) ov.remove();
 }
 
+// その日の終日予定をすべて一覧表示（終日欄の「+N」タップ用）
+function showAllDayPopup(dts) {
+  closeEvPopup();
+  const d   = new Date(dts);
+  const evs = allEvents(dkey(d)).filter(ev => evIsAllday(ev));
+  const ov  = document.createElement('div');
+  ov.id = 'ev-popup-ov';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;display:flex;align-items:center;justify-content:center';
+  ov.addEventListener('click', e => { if (e.target === ov) closeEvPopup(); });
+  const rows = evs.map(ev => {
+    const c   = ev.source==='gcal' ? '#1D9E75' : '#378ADD';
+    const src = ev.source==='gcal' ? 'GCal' : 'ローカル';
+    return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-top:0.5px solid #eee">
+      <span style="width:7px;height:7px;border-radius:50%;background:${c};flex-shrink:0"></span>
+      <span style="flex:1;font-size:13px;color:#222;word-break:break-word">${esc(ev.title)}</span>
+      <span style="font-size:9px;color:#999;flex-shrink:0">${src}</span>
+    </div>`;
+  }).join('');
+  ov.innerHTML = `<div style="background:#fff;border-radius:10px;padding:14px 16px;max-width:84%;min-width:240px;max-height:70vh;overflow:auto;box-shadow:0 8px 30px rgba(0,0,0,.25)">
+    <div style="font-size:12px;color:#888;margin-bottom:2px">${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}（${DOW[d.getDay()]}）　終日 ${evs.length}件</div>
+    ${rows}
+    <div style="text-align:right;margin-top:10px">
+      <button onclick="closeEvPopup()" style="font-size:12px;padding:4px 14px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer">閉じる</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+
 // ---------- 週表示（終日イベント表示修正） ----------
 function renderWeek() {
   evPopupReg = [];
+  // 再描画前の表示時間帯（スクロール位置）を控える。ナビ等の再描画では維持する
+  const prevScroll = (() => { const s = document.querySelector('.sched-scroll'); return s ? s.scrollTop : null; })();
   const daysLen = (view === '2week') ? 14 : 7;
   const days = wdays(wkStart, daysLen);
   const e    = days[days.length-1];
@@ -481,17 +516,18 @@ function renderWeek() {
   const hours = Array.from({length: 24}, (_, i) => i);
   const wdow2 = weekDow();
 
-  // 終日イベント行（予定の有無に関わらず常に表示・最大2件＋+N件制限）
-  const MAX_ALLDAY = 2;
-  let allDayHtml = '<tr><td style="font-size:9px;color:#aaa;text-align:right;padding-right:4px;background:#fafafa;border:0.5px solid #ddd;white-space:nowrap;vertical-align:top;padding-top:4px">終日</td>';
+  // 終日イベント行：全件を高さ可変の領域に表示（下端ドラッグでリサイズ）。
+  // 収まらない件数は「+N」で示す（1件あたり約14pxとして概算）
+  const PER_ALLDAY = 14;
+  const curAlldayH = parseInt(localStorage.getItem('bio_allday_h')) || 38;
+  const visibleAllday = Math.max(1, Math.floor(curAlldayH / PER_ALLDAY));
+  let allDayHtml = '<tr class="allday-row"><td style="font-size:9px;color:#aaa;text-align:right;padding-right:4px;background:#fafafa;border:0.5px solid #ddd;white-space:nowrap;vertical-align:top;padding-top:4px">終日</td>';
   days.forEach(d => {
     const k    = dkey(d);
     const evs  = allEvents(k).filter(ev => evIsAllday(ev));
     const b    = bio(d);
-    const show = evs.slice(0, MAX_ALLDAY);
-    const over = evs.length - MAX_ALLDAY;
-    allDayHtml += '<td style="border:0.5px solid #ddd;padding:2px;vertical-align:top;background:#fff;min-height:20px">';
-    show.forEach(ev => {
+    allDayHtml += '<td style="border:0.5px solid #ddd;padding:2px;vertical-align:top;background:#fff;position:relative"><div class="allday-cell">';
+    evs.forEach(ev => {
       const bg = isCrit(b)?'#F5C4B3': ev.source==='gcal'?'#9FE1CB':'#B5D4F4';
       const fg = isCrit(b)?'#4A1B0C': ev.source==='gcal'?'#04342C':'#042C53';
       const pid = evPopupReg.push({ d: d.getTime(), ev }) - 1;
@@ -500,13 +536,16 @@ function renderWeek() {
         overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
         onclick="event.stopPropagation();showEvPopup(${pid})">${esc(ev.title)}</span>`;
     });
-    if (over > 0) {
-      allDayHtml += `<span style="font-size:9px;color:#888;cursor:pointer;display:block;margin:1px 0;padding:1px 3px"
-        onclick="clickDay(${d.getTime()})">+${over}件</span>`;
-    }
+    allDayHtml += '</div>';
+    const hidden0 = Math.max(0, evs.length - visibleAllday);
+    allDayHtml += `<div class="allday-more" data-total="${evs.length}"
+      style="${hidden0>0?'':'display:none'}"
+      onclick="event.stopPropagation();showAllDayPopup(${d.getTime()})">+${hidden0}</div>`;
     allDayHtml += '</td>';
   });
   allDayHtml += '</tr>';
+  // 終日欄の高さ調整ハンドル（下端をドラッグ）
+  allDayHtml += `<tr class="allday-resize-row"><td colspan="${daysLen+1}" style="padding:0;border:0;background:#fafafa"><div class="allday-resize" title="ドラッグで終日欄の高さを調整"></div></td></tr>`;
 
   let html = `<div class="sched-scroll"><table style="width:100%;border-collapse:collapse;table-layout:fixed">
     <thead><tr>
@@ -583,23 +622,72 @@ function renderWeek() {
   html += '</tbody></table></div>';
   document.getElementById('main-area').innerHTML = html;
 
-  // スクロール領域の調整：終日行をヘッダー直下に固定し、初期位置を朝(7時)付近へ
+  // ヘッダー→終日行→終日リサイズハンドルを上部にスティッキー固定（高さ変化に追従）
+  const fixSticky = () => {
+    const sc = document.querySelector('.sched-scroll');
+    if (!sc) return 0;
+    const thead = sc.querySelector('thead');
+    const headH = thead ? thead.getBoundingClientRect().height : 0;
+    const adr = sc.querySelector('.allday-row');
+    if (adr) adr.querySelectorAll('td').forEach(td => {
+      td.style.position = 'sticky'; td.style.top = headH + 'px'; td.style.zIndex = '2';
+    });
+    const adH = adr ? adr.getBoundingClientRect().height : 0;
+    const rr = sc.querySelector('.allday-resize-row');
+    if (rr) rr.querySelectorAll('td').forEach(td => {
+      td.style.position = 'sticky'; td.style.top = (headH + adH) + 'px'; td.style.zIndex = '2';
+    });
+    return headH + adH;
+  };
+
+  // 終日欄の高さに応じて「+N」を更新（1件約14px換算）
+  const updateAlldayBadges = (h) => {
+    const sc = document.querySelector('.sched-scroll');
+    if (!sc) return;
+    const vis = Math.max(1, Math.floor(h / PER_ALLDAY));
+    sc.querySelectorAll('.allday-more').forEach(b => {
+      const total = parseInt(b.dataset.total) || 0;
+      const hidden = total - vis;
+      if (hidden > 0) { b.style.display = ''; b.textContent = '+' + hidden; }
+      else b.style.display = 'none';
+    });
+  };
+
   requestAnimationFrame(() => {
     const sc = document.querySelector('.sched-scroll');
     if (!sc) return;
-    const thead = sc.querySelector('thead');
-    const headH = thead ? thead.getBoundingClientRect().height : 0;
-    // 終日行（tbody最初のtr）をヘッダー直下にスティッキー固定
-    const allDayTr = sc.querySelector('tbody tr');
-    if (allDayTr) allDayTr.querySelectorAll('td').forEach(td => {
-      td.style.position = 'sticky';
-      td.style.top = headH + 'px';
-      td.style.zIndex = '2';
+    const topFixed = fixSticky();
+    // スクロール位置：ナビ等の再描画では現状の時間帯を維持。初回(他ビューから週へ)は7時付近
+    if (prevScroll != null) {
+      sc.scrollTop = prevScroll;
+    } else {
+      const tgt = document.getElementById('hour-7');
+      if (tgt) sc.scrollTop += tgt.getBoundingClientRect().top - sc.getBoundingClientRect().top - topFixed;
+    }
+    // 「+N」は描画時に件数から算出済み（curAlldayH基準）
+    // 終日欄リサイズ：下端ハンドルのドラッグで高さ変更（PC=マウス / スマホ=タッチ）
+    const rh = sc.querySelector('.allday-resize');
+    if (rh) rh.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      rh.setPointerCapture(e.pointerId);
+      const y0 = e.clientY;
+      const cell = sc.querySelector('.allday-cell');
+      const startH = cell ? cell.getBoundingClientRect().height : 38;
+      const onMove = ev => {
+        const h = Math.max(24, Math.min(260, startH + (ev.clientY - y0)));
+        document.documentElement.style.setProperty('--allday-h', h + 'px');
+        fixSticky();
+        updateAlldayBadges(h);
+      };
+      const onUp = () => {
+        rh.removeEventListener('pointermove', onMove);
+        rh.removeEventListener('pointerup', onUp);
+        const px = parseInt(document.documentElement.style.getPropertyValue('--allday-h'));
+        if (px) localStorage.setItem('bio_allday_h', String(px));
+      };
+      rh.addEventListener('pointermove', onMove);
+      rh.addEventListener('pointerup', onUp);
     });
-    // 初期スクロール：7時の行がヘッダー＋終日行の直下に来るように
-    const tgt = document.getElementById('hour-7');
-    const allDayH = allDayTr ? allDayTr.getBoundingClientRect().height : 0;
-    if (tgt) sc.scrollTop += tgt.getBoundingClientRect().top - sc.getBoundingClientRect().top - headH - allDayH;
   });
 }
 
@@ -1025,6 +1113,7 @@ wkStart=getWeekStart(TODAY);
 }
 init();
 applySchedH();
+applyAlldayH();
 applyWeatherLocToSelect();
 initWeather();
 

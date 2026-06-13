@@ -16,6 +16,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* 週/2週スケジュール：24時間を縦スクロール（指/ホイールで上下に動かす）。ヘッダーは固定 */
 .sched-scroll{height:var(--sched-h,58vh);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
   border:0.5px solid #eee;border-radius:6px}
+/* 終日欄：高さ可変。収まらない分は隠し「+N」で示す。下端ハンドルでリサイズ */
+.allday-cell{height:var(--allday-h,38px);overflow:hidden}
+.allday-more{position:absolute;right:1px;bottom:1px;font-size:9px;color:#fff;background:#378ADD;
+  border-radius:3px;padding:0 4px;line-height:1.5;cursor:pointer;z-index:3;box-shadow:0 0 2px rgba(0,0,0,.25)}
+.allday-resize{height:9px;cursor:ns-resize;touch-action:none;display:flex;align-items:center;justify-content:center;background:#fafafa}
+.allday-resize::before{content:'';width:44px;height:3px;border-radius:2px;background:#ccc}
+.allday-resize:hover::before{background:#999}
 
 /* ツールバー */
 .toolbar{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;
