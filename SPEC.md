@@ -162,3 +162,11 @@ bio-scheduler/
 
 - モダンブラウザ（Chrome / Safari / Edge）。iPhone/Androidのホーム画面追加でPWA動作。
 - 必須機能: localStorage、Service Worker、Pointer Events、CSS sticky、Geolocation（天気・任意）。
+
+---
+
+## 9. 著作権
+
+本アプリおよび本サイトに含まれるプログラム・デザイン・テキスト・画像等の著作権は、運営者（eins2019）に帰属します。運営者は本アプリに関する著作権その他一切の権利を保有し、これらを放棄するものではありません。本アプリが無償で提供・公開されていることをもって、著作権の放棄やパブリックドメインへの提供を意味するものではありません。法令で認められる範囲を超える複製・改変・再配布・転載を禁じます。
+
+© 2026 eins2019. All rights reserved.
