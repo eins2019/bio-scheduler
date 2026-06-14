@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.18';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.19';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -148,6 +148,7 @@ function adjustWkStart(d) {
 
 // ---------- 天気予報（Open-Meteo・APIキー不要・16日先まで） ----------
 let weather = {};   // { 'YYYY-MM-DD': WMO天気コード }
+let temps   = {};   // { 'YYYY-MM-DD': {max, min} } 最高/最低気温
 const WEATHER_CACHE_KEY = 'bio_weather_cache';
 
 function wmoIcon(code) {
@@ -166,16 +167,27 @@ function weatherIcon(d) {
   const c = weather[dkey(d)];
   return c === undefined ? '' : wmoIcon(c);
 }
+// 最高(赤)/最低(青)気温のラベル
+function tempLabel(d) {
+  const t = temps[dkey(d)];
+  if (!t) return '';
+  return `<div style="font-size:9px;line-height:1.2;white-space:nowrap">`
+    + `<span style="color:#C0392B">${t.max}°</span> <span style="color:#185FA5">${t.min}°</span></div>`;
+}
 
 async function fetchWeather(lat, lon) {
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
-      + `&daily=weather_code&timezone=auto&forecast_days=16`;
+      + `&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=16`;
     const resp = await fetch(url);
     const data = await resp.json();
-    weather = {};
-    (data.daily?.time ?? []).forEach((t, i) => { weather[t] = data.daily.weather_code[i]; });
-    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ at: Date.now(), weather }));
+    weather = {}; temps = {};
+    (data.daily?.time ?? []).forEach((t, i) => {
+      weather[t] = data.daily.weather_code[i];
+      const mx = data.daily.temperature_2m_max?.[i], mn = data.daily.temperature_2m_min?.[i];
+      if (mx != null && mn != null) temps[t] = { max: Math.round(mx), min: Math.round(mn) };
+    });
+    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ at: Date.now(), weather, temps }));
     render();
   } catch (e) { console.warn('天気取得失敗', e); }
 }
@@ -184,7 +196,7 @@ function initWeather() {
   // 3時間以内に取得済みならキャッシュを使う
   try {
     const c = JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY));
-    if (c && Date.now() - c.at < 3*3600*1000) { weather = c.weather; render(); return; }
+    if (c && c.temps && Date.now() - c.at < 3*3600*1000) { weather = c.weather; temps = c.temps; render(); return; }
   } catch {}
   const loc = getWeatherLoc();
   if (loc.mode === 'fixed') { fetchWeather(loc.lat, loc.lon); return; }
@@ -651,8 +663,8 @@ function renderWeek() {
       border:0.5px solid #ddd;background:${bgH};color:${fgH};cursor:pointer;width:${(100/daysLen).toFixed(2)}%;position:sticky;top:0;z-index:3"
       onclick="clickDay(${d.getTime()})">
       <div style="font-size:15px;font-weight:600;line-height:1.2">${d.getDate()}${stat.icon?`<span title="${stat.title}" style="font-size:11px;margin-left:1px">${stat.icon}</span>`:''}</div>
-      <div style="font-size:11px;line-height:1.2">${DOW[d.getDay()]}</div>
-      ${weatherIcon(d)?`<div style="font-size:11px;line-height:1.3">${weatherIcon(d)}</div>`:''}
+      <div style="font-size:11px;line-height:1.2">${DOW[d.getDay()]}${weatherIcon(d)?` <span style="font-size:12px">${weatherIcon(d)}</span>`:''}</div>
+      ${tempLabel(d)}
       ${holName2?`<div style="font-size:8px;font-weight:normal;line-height:1.2">${holName2}</div>`:''}
     </th>`;
   });

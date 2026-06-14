@@ -2,7 +2,7 @@
 // sw.js - Service Worker
 // ===========================
 
-const CACHE_NAME = 'bio-scheduler-v1.18';  // app.jsのAPP_VERと合わせて更新すること
+const CACHE_NAME = 'bio-scheduler-v1.19';  // app.jsのAPP_VERと合わせて更新すること
 
 // キャッシュするファイル一覧
 // 相対パスにすること（GitHub Pagesのようなサブパス配下でも動くように）
