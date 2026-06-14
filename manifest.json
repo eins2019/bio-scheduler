@@ -1,6 +1,6 @@
 {
   "name": "Bioスケジューラ",
-  "short_name": "BioScd",
+  "short_name": "BioSKD",
   "description": "バイオリズムと連携したスケジューラアプリ",
   "start_url": "./",
   "scope": "./",
