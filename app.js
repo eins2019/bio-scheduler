@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.16';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.17';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -470,6 +470,79 @@ function showEvPopup(i) {
 function closeEvPopup() {
   const ov = document.getElementById('ev-popup-ov');
   if (ov) ov.remove();
+}
+
+// 使い方・ヘルプを表示（MANUAL.mdの要約）
+function showHelp() {
+  closeEvPopup();
+  const ov = document.createElement('div');
+  ov.id = 'ev-popup-ov';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:flex;align-items:center;justify-content:center;padding:12px';
+  ov.addEventListener('click', e => { if (e.target === ov) closeEvPopup(); });
+  ov.innerHTML = `<div class="help-body">
+    <h2>Bioスケジューラ の使い方 <span class="muted">v${APP_VER}</span></h2>
+    <div class="muted">バイオリズム・予定・天気・祝日を1画面で確認できます。データはこの端末内（ブラウザ）にのみ保存され、サーバーには送られません。</div>
+
+    <h3>はじめに</h3>
+    <ul>
+      <li>ツールバーの「生年月日」を自分の誕生日に設定（変更で即反映）。</li>
+      <li>スマホは共有メニューから「ホーム画面に追加」でアプリのように使えます。</li>
+    </ul>
+
+    <h3>表示の切り替え</h3>
+    <ul>
+      <li>右上タブで <b>月／週／2週</b> を切替。</li>
+      <li>◀▶ または <b>左右スワイプ</b>で前後へ移動。「今日」で当日へ。</li>
+      <li>「日曜始／月曜始」ボタンで週の開始曜日を切替。</li>
+    </ul>
+
+    <h3>バイオリズム</h3>
+    <ul>
+      <li>身体P(青■)／感情S(橙●)／知性I(緑▲)／直感N(紫○点線)。「直感線」ONで第4波を追加。</li>
+      <li><b>⚠️ 要注意日</b>=波が0を横切る日／<b>😊 好調日</b>=全リズムが高調期(プラス)の日。</li>
+      <li>「ⓘ 各波の意味」を開くとユング心理機能との対応の解説が出ます。</li>
+    </ul>
+
+    <h3>予定</h3>
+    <ul>
+      <li>日（月表示）や時間枠（週/2週）をタップ→下の詳細パネルで <b>タイトル＋時刻</b>を入れて「追加」。</li>
+      <li>予定をタップすると内容をポップアップ表示。削除は詳細パネルの「✕」（ローカル予定のみ）。</li>
+      <li>終日予定（週/2週）は上部「終日」欄。<b>下端をドラッグ</b>で高さ変更、入りきらない分は「+N」→タップで一覧。</li>
+    </ul>
+
+    <h3>スケジュール（週/2週）</h3>
+    <ul>
+      <li>0〜23時を表示。<b>上下にドラッグ/スクロール</b>で全時間帯を表示（ヘッダーと終日欄は固定）。</li>
+      <li>左右スワイプで週送りしても見ている時間帯は維持。</li>
+      <li>バイオリズム枠の<b>上端のつまみ</b>をドラッグするとスケジュール領域の高さが変わります。</li>
+    </ul>
+
+    <h3>Googleカレンダー連携</h3>
+    <ul>
+      <li>「Googleカレンダーと連携」→許可（<b>読み取り専用</b>）。2回目以降は「Google再連携」で最新化。</li>
+      <li>解除は「連携済み ✓」をもう一度タップ。Google予定の編集はGoogle側で。</li>
+    </ul>
+
+    <h3>天気・祝日</h3>
+    <ul>
+      <li>天気メニューで現在地／主要都市／都市名指定（16日先まで）。日本の祝日(2024〜2027)は自動表示。</li>
+    </ul>
+
+    <h3>バックアップ</h3>
+    <ul>
+      <li>最下部「書き出し」でローカル予定をJSON保存、「読み込み」で取り込み（重複はスキップ）。端末移行に使えます。</li>
+    </ul>
+
+    <h3>うまく更新されないとき</h3>
+    <ul>
+      <li>PCは Cmd/Ctrl+Shift+R で再読込。PWAはアイコンを入れ直すと確実（右上の版表示で確認）。</li>
+    </ul>
+
+    <div style="text-align:right;margin-top:12px">
+      <button onclick="closeEvPopup()" style="font-size:13px;padding:5px 16px;border:1px solid #1F5C99;border-radius:6px;background:#1F5C99;color:#fff;cursor:pointer">閉じる</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
 }
 
 // その日の終日予定をすべて一覧表示（終日欄の「+N」タップ用）
