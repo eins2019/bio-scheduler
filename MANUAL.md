@@ -89,6 +89,21 @@
 
 > ヒント: 取り込んだGoogle予定は閲覧のみ。編集・削除はGoogleカレンダー側で行ってください。
 
+### 公開時のGoogle OAuth同意画面設定
+
+Google Cloud Consoleで一般公開用に設定する場合は、以下を登録します。
+
+| 項目 | 入力内容 |
+|---|---|
+| アプリ名 | BioSKD |
+| サポートメール | eins56@gmail.com |
+| ユーザータイプ | External（外部公開） |
+| 必要なカレンダー権限 | `https://www.googleapis.com/auth/calendar.readonly` |
+| プライバシーポリシーURL | `https://eins2019.github.io/bio-scheduler/privacy.html` |
+| アプリURL | `https://eins2019.github.io/bio-scheduler/` |
+
+Calendar権限は読み取り専用です。利用者の予定を表示するためだけに使い、予定の作成・変更・削除は行いません。
+
 ---
 
 ## 8. 天気・祝日

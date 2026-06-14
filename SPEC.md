@@ -44,6 +44,7 @@ bio-scheduler/
 ├── gcal.js           Googleカレンダー連携（OAuth・予定取得）・祝日データ
 ├── sw.js             Service Worker（キャッシュ戦略・オフライン）
 ├── manifest.json     PWAマニフェスト（名前・アイコン・表示モード）
+├── privacy.html      プライバシーポリシー（Google OAuth申請用URL）
 ├── icon-192.png      アプリアイコン（192px）
 ├── icon-512.png      アプリアイコン（512px）
 ├── SPEC.md           本仕様書
@@ -121,6 +122,20 @@ bio-scheduler/
   天気コードに加え**最高/最低気温**（temperature_2m_max/min）も取得。週/2週ヘッダーで曜日の横に
   天気アイコン、その下に最高気温（赤）・最低気温（青）を表示。
 - **祝日**: gcal.js内の静的データ（2024〜2027年）。連携不要で表示。
+
+### Google OAuth 同意画面の登録値
+
+| 項目 | 登録内容 |
+|---|---|
+| アプリ名 | BioSKD |
+| サポートメール | eins56@gmail.com |
+| ユーザータイプ | External（外部公開） |
+| 必要なカレンダー権限 | `https://www.googleapis.com/auth/calendar.readonly` |
+| 権限の用途 | Googleカレンダー予定の読み取りとアプリ画面への表示のみ。予定の作成・変更・削除は行わない。 |
+| アプリホームページ | `https://eins2019.github.io/bio-scheduler/` |
+| プライバシーポリシーURL | `https://eins2019.github.io/bio-scheduler/privacy.html` |
+| 承認済みJavaScript生成元 | `https://eins2019.github.io` |
+| 承認済みリダイレクトURI | `https://eins2019.github.io/bio-scheduler/`（Google Cloud Consoleで要求される場合のみ） |
 
 ---
 

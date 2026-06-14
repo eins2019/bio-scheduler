@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>プライバシーポリシー｜BioSKD</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f8f8;color:#222;line-height:1.8}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:20px;color:#1F5C99;margin:8px 0 4px}
+h2{font-size:15px;color:#1F5C99;margin:22px 0 6px;border-left:4px solid #1F5C99;padding-left:8px}
+p,li{font-size:14px;margin:4px 0}
+ul{margin:4px 0 4px 22px}
+.muted{color:#777;font-size:12px}
+.box{background:#fff;border:0.5px solid #ddd;border-radius:8px;padding:16px 18px;margin-top:10px}
+a{color:#1F5C99}
+.back{display:inline-block;margin-top:24px;font-size:13px}
+code{background:#eef;padding:1px 4px;border-radius:3px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BioSKD プライバシーポリシー</h1>
+  <p class="muted">最終更新日: 2026年6月14日</p>
+
+  <div class="box">
+    <p>BioSKD（以下「本アプリ」）は、バイオリズム・予定・天気・祝日を1画面で確認できる
+    Webアプリ（PWA）です。本ポリシーは、本アプリが扱う情報とその取り扱いを説明します。
+    本アプリはサーバーを持たず、入力データは利用者の端末（ブラウザ）内にのみ保存されます。</p>
+    <p class="muted">アプリ名: BioSKD ／ サポートメール:
+    <a href="mailto:eins56@gmail.com">eins56@gmail.com</a> ／ 公開URL:
+    <a href="https://eins2019.github.io/bio-scheduler/">https://eins2019.github.io/bio-scheduler/</a></p>
+  </div>
+
+  <h2>1. 取得・保存する情報と目的</h2>
+  <ul>
+    <li><b>入力データ（生年月日・予定・各種設定）</b>: バイオリズム計算と予定表示のために、
+      利用者の端末のブラウザ保存領域（localStorage）にのみ保存します。外部サーバーには送信しません。</li>
+    <li><b>位置情報</b>: 天気予報の取得に使用します。端末の位置情報を許可した場合のみ取得し、
+      緯度・経度を天気サービス（Open‑Meteo）へ送信して予報を取得します。位置情報を保存・追跡しません。
+      地域を手動指定した場合は位置情報を使用しません。</li>
+    <li><b>Googleアカウント情報（任意の連携時のみ）</b>: 利用者がGoogleカレンダー連携を行った場合、
+      <b>読み取り専用スコープ（<code>calendar.readonly</code>）</b>でカレンダーの予定を取得し、
+      表示のために端末内に一時キャッシュします。サーバーには送信・保存しません。予定の作成・変更・削除は行いません。</li>
+  </ul>
+
+  <h2>2. 第三者への提供</h2>
+  <p>本アプリは利用者の個人データを第三者に販売・提供しません。機能提供に必要な範囲で、
+  天気サービス（Open‑Meteo）へ位置情報、Google APIへ認証要求を送信するのみです。</p>
+
+  <h2>3. Google ユーザーデータの取り扱い（Limited Use）</h2>
+  <p>本アプリがGoogle APIから受け取る情報の使用および転送は、
+  <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>
+  （Limited Use 要件を含む）に準拠します。Googleカレンダーの予定データは、画面表示の目的にのみ使用し、
+  広告等の目的には利用せず、第三者へ転送しません。</p>
+  <p class="muted">BioSKD's use and transfer to any other app of information received from Google APIs will adhere to the
+  Google API Services User Data Policy, including the Limited Use requirements.</p>
+
+  <h2>4. データの削除・連携の解除</h2>
+  <ul>
+    <li>本アプリ内のデータは、ブラウザの「サイトデータ／履歴の削除」で消去できます。</li>
+    <li>Googleカレンダー連携は、アプリ内の「連携済み」ボタンから解除できます。</li>
+    <li>付与したアクセス権は
+      <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Googleアカウントのアクセス管理</a>
+      からいつでも取り消せます。</li>
+  </ul>
+
+  <h2>5. Cookie・トラッキング</h2>
+  <p>本アプリはCookieを使用せず、解析・広告・第三者トラッキングを行いません
+  （設定保存はブラウザのlocalStorageのみ）。</p>
+
+  <h2>6. 免責事項</h2>
+  <p>バイオリズムは娯楽・参考を目的とした表示であり、科学的な正確性を保証するものではありません。
+  天気予報・祝日・カレンダー情報の正確性・完全性についても保証しません。本アプリの利用により生じた
+  いかなる損害についても、運営者は責任を負いません。</p>
+
+  <h2>7. 改定</h2>
+  <p>本ポリシーは予告なく改定されることがあります。重要な変更がある場合は本ページで告知します。</p>
+
+  <h2>8. お問い合わせ</h2>
+  <p>運営者: BioSKD 開発者<br>
+  サポートメール: <a href="mailto:eins56@gmail.com">eins56@gmail.com</a><br>
+  プライバシーポリシーURL:
+  <a href="https://eins2019.github.io/bio-scheduler/privacy.html">https://eins2019.github.io/bio-scheduler/privacy.html</a></p>
+
+  <a class="back" href="./">← BioSKD に戻る</a>
+</div>
+</body>
+</html>
