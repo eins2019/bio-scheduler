@@ -1,6 +1,6 @@
-# BioSKD（Bioスケジューラ）利用マニュアル
+# Bio-Scheduler（Bioスケジューラ）利用マニュアル
 
-公開URL: https://eins2019.github.io/bio-scheduler/ ／ アプリ表示名「BioSKD」（v1.22）
+公開URL: https://eins2019.github.io/bio-scheduler/ ／ アプリ表示名「Bio-Scheduler」（v1.22）
 
 バイオリズム・予定・天気・祝日を1画面で確認できるアプリです。データは使っている端末の中
 （ブラウザ）に保存され、サーバーには送られません。
@@ -98,7 +98,7 @@ Google Cloud Consoleで一般公開用に設定する場合は、以下を登録
 
 | 項目 | 入力内容 |
 |---|---|
-| アプリ名 | BioSKD |
+| アプリ名 | Bio-Scheduler |
 | サポートメール | eins56@gmail.com |
 | ユーザータイプ | External（外部公開） |
 | 必要なカレンダー権限 | `https://www.googleapis.com/auth/calendar.readonly` |
