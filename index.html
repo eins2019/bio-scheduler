@@ -12,7 +12,12 @@ html,body{max-width:100%;overflow-x:hidden}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f8f8;color:#222}
 #app{width:100%;max-width:780px;margin:0 auto;padding:8px}
 /* 横に広い表（2週など）は本体内でスクロールさせ、ページ全体は横はみ出しさせない */
-#main-area{overflow-x:auto;-webkit-overflow-scrolling:touch}
+#main-area{overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative}
+/* 時間帯グリッドの各曜日列で、上下に隠れた予定の件数バッジ（タップでその予定までスクロール） */
+.sched-more{position:absolute;z-index:6;font-size:9px;font-weight:700;color:#fff;
+  background:rgba(224,119,43,.95);border-radius:9px;padding:0 5px;line-height:15px;cursor:pointer;
+  box-shadow:0 1px 2px rgba(0,0,0,.3);user-select:none;display:none;
+  transform:translateX(-50%);white-space:nowrap;pointer-events:auto}
 /* 週/2週スケジュール：24時間を縦スクロール（指/ホイールで上下に動かす）。ヘッダーは固定 */
 .sched-scroll{height:var(--sched-h,58vh);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
   border:0.5px solid #eee;border-radius:6px}

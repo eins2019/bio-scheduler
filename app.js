@@ -2,7 +2,7 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.21';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.22';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
@@ -691,7 +691,7 @@ function renderWeek() {
         const left  = (it.lane / it.nLanes * 100).toFixed(1);
         const width = (100 / it.nLanes).toFixed(1);
         const pid = evPopupReg.push({ d: d.getTime(), ev }) - 1;
-        html += `<div style="position:absolute;top:1px;left:calc(${left}% + 1px);
+        html += `<div class="sched-ev" data-di="${di}" style="position:absolute;top:1px;left:calc(${left}% + 1px);
           width:calc(${width}% - 2px);height:${(rows*26.5-4).toFixed(1)}px;
           background:${bg};color:${fg};font-size:9px;padding:1px 3px;border-radius:3px;
           z-index:1;overflow:hidden;box-sizing:border-box;cursor:pointer"
@@ -750,6 +750,64 @@ function renderWeek() {
       if (tgt) sc.scrollTop += tgt.getBoundingClientRect().top - sc.getBoundingClientRect().top - topFixed;
     }
     // 「+N」は描画時に件数から算出済み（curAlldayH基準）
+
+    // 時間帯グリッドの各曜日列で、上下に隠れた予定を「↑N／↓N」で表示（タップでその予定へスクロール）
+    const main = document.getElementById('main-area');
+    const moreBadges = [];   // [{top, bot}] 列ごと
+    const ensureBadges = (n) => {
+      while (moreBadges.length < n) {
+        const t = document.createElement('div'); t.className = 'sched-more';
+        const b = document.createElement('div'); b.className = 'sched-more';
+        main.appendChild(t); main.appendChild(b);
+        moreBadges.push({ top: t, bot: b });
+      }
+    };
+    const updateSchedMore = () => {
+      const rect  = sc.getBoundingClientRect();
+      const mr    = main.getBoundingClientRect();
+      const thead = sc.querySelector('thead');
+      const adr   = sc.querySelector('.allday-row');
+      const topF  = (thead?thead.getBoundingClientRect().height:0) + (adr?adr.getBoundingClientRect().height:0);
+      const vTop  = rect.top + topF, vBot = rect.bottom;
+      const ths   = thead ? thead.querySelectorAll('th') : [];   // [0]=時間軸, [1..]=各曜日
+      // 列ごとに、上/下に隠れた件数とスクロール先を集計
+      const cnt = {};
+      sc.querySelectorAll('.sched-ev').forEach(el => {
+        const di = +el.dataset.di;
+        const r  = el.getBoundingClientRect();
+        const c  = cnt[di] || (cnt[di] = { above:0, below:0, aTgt:-Infinity, bTgt:Infinity });
+        if (r.bottom <= vTop + 1) {
+          c.above++; const t = sc.scrollTop + (r.top - rect.top) - topF - 4; if (t > c.aTgt) c.aTgt = t;
+        } else if (r.top >= vBot - 1) {
+          c.below++; const t = sc.scrollTop + (r.bottom - rect.top) - sc.clientHeight + 4; if (t < c.bTgt) c.bTgt = t;
+        }
+      });
+      ensureBadges(daysLen);
+      const vertTop = rect.top - mr.top + topF + 2;
+      const vertBot = rect.top - mr.top + sc.clientHeight - 18;
+      for (let di = 0; di < daysLen; di++) {
+        const th = ths[di + 1];
+        const c  = cnt[di];
+        const bd = moreBadges[di];
+        if (th && c && c.above > 0) {
+          const tr = th.getBoundingClientRect();
+          bd.top.textContent = '↑' + c.above; bd.top.style.display = 'block';
+          bd.top.style.left = (tr.left - mr.left + tr.width/2) + 'px';
+          bd.top.style.top  = vertTop + 'px';
+          bd.top.onclick = () => sc.scrollTo({ top: Math.max(0, c.aTgt), behavior: 'smooth' });
+        } else bd.top.style.display = 'none';
+        if (th && c && c.below > 0) {
+          const tr = th.getBoundingClientRect();
+          bd.bot.textContent = '↓' + c.below; bd.bot.style.display = 'block';
+          bd.bot.style.left = (tr.left - mr.left + tr.width/2) + 'px';
+          bd.bot.style.top  = vertBot + 'px';
+          bd.bot.onclick = () => sc.scrollTo({ top: c.bTgt, behavior: 'smooth' });
+        } else bd.bot.style.display = 'none';
+      }
+    };
+    sc.addEventListener('scroll', updateSchedMore, { passive: true });
+    updateSchedMore();
+
     // 終日欄リサイズ：下端ハンドルのドラッグで高さ変更（PC=マウス / スマホ=タッチ）
     const rh = sc.querySelector('.allday-resize');
     if (rh) rh.addEventListener('pointerdown', e => {
@@ -763,6 +821,7 @@ function renderWeek() {
         document.documentElement.style.setProperty('--allday-h', h + 'px');
         fixSticky();
         updateAlldayBadges(h);
+        updateSchedMore();
       };
       const onUp = () => {
         rh.removeEventListener('pointermove', onMove);
@@ -1231,7 +1290,18 @@ function setShowIntuition(on) {
 function setWeekStart(val) {
   weekStart0 = parseInt(val);
   localStorage.setItem('bio_week_start', val);
-  wkStart = getWeekStart(TODAY);
+  // 今見ている期間と最も重なる週を選ぶ（日↔月の往復で前後にドリフトしない）。
+  // 例：14日(日)始まりを月曜始へ→15日(月)始まり、戻すと14日(日)始まりに復帰。
+  const base = wkStart ? new Date(wkStart) : getWeekStart(TODAY);
+  const len  = (view === '2week') ? 14 : 7;
+  const c1   = getWeekStart(base);                                  // base以前の直近の週開始
+  const c2   = new Date(c1); c2.setDate(c1.getDate() + 7);          // その次の週開始
+  const overlap = (s) => {
+    const e = new Date(s);    e.setDate(s.getDate() + len - 1);
+    const be = new Date(base); be.setDate(base.getDate() + len - 1);
+    return Math.min(e, be) - Math.max(s, base);                     // 重なり日数（ms）
+  };
+  wkStart = overlap(c2) > overlap(c1) ? c2 : c1;
   selDay = null; selWkStart = null;
   updateWeekStartBtn();
   render();
