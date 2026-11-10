@@ -2,9 +2,9 @@
 // app.js - Bioスケジューラ本体（バグ修正版）
 // ===========================
 
-const APP_VER = '1.22';  // sw.jsのCACHE_NAMEと合わせて更新すること
+const APP_VER = '1.23';  // sw.jsのCACHE_NAMEと合わせて更新すること
 
-const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+let TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const DOW = ['日','月','火','水','木','金','土'];
 
 // HTMLエスケープ（イベントタイトル等をinnerHTMLへ入れる前に必ず通す）
@@ -43,17 +43,41 @@ function getWeekStart(d) {
 // ローカル予定の永続化
 const EVENTS_KEY = 'bio_events';
 function loadEvents() {
-  try { return JSON.parse(localStorage.getItem(EVENTS_KEY)) ?? {}; }
+  try {
+    return normalizeStoredEvents(JSON.parse(localStorage.getItem(EVENTS_KEY)) ?? {}, 'local');
+  }
   catch { return {}; }
 }
+function normalizeStoredEvents(stored, source) {
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return {};
+  const normalized = {};
+  Object.keys(stored).forEach(k => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !Array.isArray(stored[k])) return;
+    const valid = stored[k].filter(ev => ev && typeof ev.title === 'string').map(ev => ({
+      ...ev,
+      hourStart: normalizeHour(ev.hourStart ?? ev.hour ?? null),
+      hourEnd: normalizeHour(ev.hourEnd ?? ev.hour ?? null),
+      source
+    }));
+    if (valid.length) normalized[k] = valid;
+  });
+  return normalized;
+}
 function saveEvents() {
-  localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
+  try {
+    localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
+    return true;
+  } catch (err) {
+    alert('予定を保存できませんでした。端末の空き容量やブラウザー設定を確認してください。');
+    console.warn('予定の保存に失敗しました', err);
+    return false;
+  }
 }
 
 // Googleカレンダー予定のキャッシュ（リロード直後でも表示を維持するため）
 const GCAL_CACHE_KEY = 'bio_gcal_cache';
 function loadGcalCache() {
-  try { return JSON.parse(localStorage.getItem(GCAL_CACHE_KEY)) ?? {}; }
+  try { return normalizeStoredEvents(JSON.parse(localStorage.getItem(GCAL_CACHE_KEY)) ?? {}, 'gcal'); }
   catch { return {}; }
 }
 
@@ -81,8 +105,12 @@ function applyAlldayH() {
 }
 
 // ---------- バイオリズム計算 ----------
+function calendarDayDifference(d, birthday) {
+  const dayUtc = date => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((dayUtc(d) - dayUtc(birthday)) / 86400000);
+}
 function bio(d) {
-  const days = Math.floor((d - bday) / 86400000);
+  const days = calendarDayDifference(d, bday);
   return {
     p: Math.sin(2 * Math.PI * days / 23),
     e: Math.sin(2 * Math.PI * days / 28),
@@ -295,6 +323,11 @@ function allEvents(key) {
 function evStart(ev) { return ev.hourStart ?? ev.hour ?? null; }
 function evEnd(ev)   { return ev.hourEnd ?? ev.hour ?? null; }
 function evIsAllday(ev) { return evStart(ev) === null; }
+function normalizeHour(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const hour = typeof value === 'number' || typeof value === 'string' ? Number(value) : NaN;
+  return Number.isInteger(hour) && hour >= 0 && hour <= 24 ? hour : null;
+}
 // 週表示用：1日の時間指定イベントを表示範囲にクランプし、重なりにはレーンを割り当てる
 function layoutDayEvents(evs, gridStart, gridEnd) {
   const items = evs
@@ -320,9 +353,9 @@ function evTimeLabel(ev) {
   const s = evStart(ev), e = evEnd(ev);
   if (s === null) return '';
   const sl = String(s).padStart(2,'0')+':00';
-  if (e === null || e === s) return ' '+sl;
+  if (e === null || e === s) return esc(' '+sl);
   const el = String(e).padStart(2,'0')+':00';
-  return ' '+sl+'~'+el;
+  return esc(' '+sl+'~'+el);
 }
 
 // ---------- ビュー切替 ----------
@@ -1090,6 +1123,7 @@ function addEv(k) {
   render();
 }
 function delEv(k,i) {
+  if (!confirm('この予定を削除しますか？')) return;
   events[k].splice(i,1);
   if (!events[k].length) delete events[k];
   saveEvents();
@@ -1118,20 +1152,26 @@ function importEvents(file) {
     try {
       const data = JSON.parse(reader.result);
       if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('ファイルの形式が不正です');
-      const norm = e => JSON.stringify([e.title, e.hourStart ?? e.hour ?? null, e.hourEnd ?? null]);
+      const normalizedEvent = e => ({
+        title: e.title,
+        hourStart: normalizeHour(e.hourStart ?? e.hour ?? null),
+        hourEnd: normalizeHour(e.hourEnd ?? e.hour ?? null)
+      });
+      const norm = e => JSON.stringify([e.title, e.hourStart, e.hourEnd]);
       let added = 0;
       Object.keys(data).forEach(k => {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !Array.isArray(data[k])) return;
         if (!events[k]) events[k] = [];
         data[k].forEach(ev => {
           if (!ev || typeof ev.title !== 'string') return;
-          if (events[k].some(e => norm(e) === norm(ev))) return;   // 重複はスキップ
-          events[k].push({ title: ev.title, hourStart: ev.hourStart ?? ev.hour ?? null, hourEnd: ev.hourEnd ?? null, source: 'local' });
+          const clean = normalizedEvent(ev);
+          if (events[k].some(e => norm(normalizedEvent(e)) === norm(clean))) return;   // 重複はスキップ
+          events[k].push({ ...clean, source: 'local' });
           added++;
         });
         if (!events[k].length) delete events[k];
       });
-      saveEvents();
+      if (!saveEvents()) return;
       render();
       alert(`読み込み完了：${added}件を追加しました。`);
     } catch (e) {
@@ -1194,21 +1234,31 @@ function renderGcalEvents(evList) {
       });
     }
   });
-  localStorage.setItem(GCAL_CACHE_KEY, JSON.stringify(gcalEvents));
+  try {
+    localStorage.setItem(GCAL_CACHE_KEY, JSON.stringify(gcalEvents));
+  } catch (err) {
+    console.warn('Googleカレンダーのキャッシュ保存に失敗しました。今回の取得結果は表示します。', err);
+  }
   render();
+  // ボタンが存在しない場合でもキャッシュ・描画は完了させる（ガード）
   const btn = document.getElementById('gcal-btn');
-  btn.textContent = '連携済み ✓';
-  btn.classList.add('connected');
-  btn.title = 'クリックで連携解除';
+  if (btn) {
+    btn.textContent = '連携済み ✓';
+    btn.classList.add('connected');
+    btn.title = 'クリックで連携解除';
+  }
 }
 
 function clearGcalEvents() {
   Object.keys(gcalEvents).forEach(k => delete gcalEvents[k]);
   localStorage.removeItem(GCAL_CACHE_KEY);
+  // ボタンが存在しない場合でもキャッシュ削除・描画は完了させる（ガード）
   const btn = document.getElementById('gcal-btn');
-  btn.textContent = 'Googleカレンダーと連携';
-  btn.classList.remove('connected');
-  btn.title = 'クリックで連携／連携解除';
+  if (btn) {
+    btn.textContent = 'Googleカレンダーと連携';
+    btn.classList.remove('connected');
+    btn.title = 'クリックで連携／連携解除';
+  }
   render();
 }
 
@@ -1326,6 +1376,16 @@ function tickClock() {
 }
 tickClock();
 setInterval(tickClock, 1000);
+function refreshToday() {
+  const now = new Date(); now.setHours(0,0,0,0);
+  if (now.getTime() === TODAY.getTime()) return;
+  TODAY = now;
+  render();
+}
+setInterval(refreshToday, 60000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') refreshToday();
+});
 
 // ---------- 祝日データのセット（gcal.jsから呼ばれる） ----------
 function setHolidays(data) {
