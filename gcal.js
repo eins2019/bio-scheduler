@@ -10,6 +10,7 @@ const STORAGE_KEY   = 'bio_gcal_autologin';  // 自動連携フラグのキー
 let tokenClient;
 let gapiInited = false;
 let gisInited  = false;
+let retried401 = false;
 
 // ---------- GAPI初期化 ----------
 async function initGapi() {
@@ -28,11 +29,12 @@ function initGis() {
     callback: async (resp) => {
       if (resp.error) {
         console.error('GIS error:', resp);
+        retried401 = false;
         // 自動連携失敗時はフラグを消してボタンをリセット
         if (resp.error === 'access_denied' || resp.error === 'interaction_required') {
           localStorage.removeItem(STORAGE_KEY);
-          resetBtn();
         }
+        resetBtn();
         return;
       }
       // 成功：自動連携フラグを保存
@@ -75,6 +77,7 @@ function handleAuthClick() {
   // 前回連携済み、または既にトークンがあるなら同意画面をスキップ（silent）。
   // クリック起点なので silent でもブラウザにブロックされない。
   const granted = localStorage.getItem(STORAGE_KEY) === '1' || gapi.client.getToken() !== null;
+  retried401 = false;
   tokenClient.requestAccessToken({ prompt: granted ? '' : 'consent' });
 }
 
@@ -117,6 +120,7 @@ async function fetchCalendarEvents() {
     if (typeof renderGcalEvents === 'function') {
       renderGcalEvents(allEvents);
     }
+    retried401 = false;
 
     // 祝日カレンダーも取得
     fetchHolidays();
@@ -125,13 +129,15 @@ async function fetchCalendarEvents() {
     console.error('Calendar API error:', err);
 
     // 401エラー（トークン期限切れ）は自動再取得
-    if (err.status === 401) {
-      console.log('トークン期限切れ。再取得します...');
+    if (err.status === 401 && !retried401) {
+      console.log('トークン期限切れ。1回だけ再取得します...');
+      retried401 = true;
       tokenClient.requestAccessToken({ prompt: '' });
       return;
     }
 
     // その他のエラー
+    retried401 = false;
     localStorage.removeItem(STORAGE_KEY);
     resetBtn();
     alert('カレンダーの取得に失敗しました。\n再度「Googleカレンダーと連携」をクリックしてください。');

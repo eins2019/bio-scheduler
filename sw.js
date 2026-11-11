@@ -2,7 +2,7 @@
 // sw.js - Service Worker
 // ===========================
 
-const CACHE_NAME = 'bio-scheduler-v1.22';  // app.jsのAPP_VERと合わせて更新すること
+const CACHE_NAME = 'bio-scheduler-v1.23';  // app.jsのAPP_VERと合わせて更新すること
 
 // キャッシュするファイル一覧
 // 相対パスにすること（GitHub Pagesのようなサブパス配下でも動くように）
@@ -14,17 +14,20 @@ const CACHE_FILES = [
   './privacy.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'
+  './icon-512.png'
 ];
+const CDN_FILE = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
 
 // ---------- インストール：キャッシュに保存 ----------
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       console.log('SW: キャッシュ保存中...');
-      // 外部CDNは失敗してもインストールを続行
-      return cache.addAll(CACHE_FILES).catch(err => {
+      return cache.addAll(CACHE_FILES).then(() =>
+        cache.add(CDN_FILE).catch(err => {
+          console.warn('SW: CDNキャッシュ失敗（続行）', err);
+        })
+      ).catch(err => {
         console.warn('SW: 一部キャッシュ失敗（続行）', err);
       });
     })
